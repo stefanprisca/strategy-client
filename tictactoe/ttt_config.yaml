@@ -62,20 +62,14 @@ channels:
       peer0.player1.tictactoe.com:
         endorsingPeer: true
         chaincodeQuery: true
-
         ledgerQuery: true
-
         eventSource: true
       
       peer0.player2.tictactoe.com:
         endorsingPeer: true
         chaincodeQuery: true
-
         ledgerQuery: true
-
         eventSource: true
-
-
 #
 # list of participating organizations in this network
 #
@@ -191,3 +185,8 @@ entityMatchers:
       urlSubstitutionExp: localhost:9051
       sslTargetOverrideUrlSubstitutionExp: peer0.player2.tictactoe.com
       mappedHost: peer0.player2.tictactoe.com
+  orderer:
+    - pattern: (\w*)orderer.tictactoe.com(\w*)
+      urlSubstitutionExp: localhost:7050
+      sslTargetOverrideUrlSubstitutionExp: orderer.tictactoe.com
+      mappedHost: orderer.tictactoe.com
