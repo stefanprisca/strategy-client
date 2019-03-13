@@ -178,16 +178,16 @@ peers:
     tlsCACerts:
       path: ${SCFIXTURES}/ttt/crypto-config/peerOrganizations/player2.tictactoe.com/tlsca/tlsca.player2.tictactoe.com-cert.pem
 
-# entityMatchers:
-#   peer:
-#     # the below matcher will allow dynamic discovery to use the anchor peer (peer0.org1.example.com)
-#     # as a template for all org1 discovered peers config
-#     - pattern: (\w+).player1.tictactoe.com:(\d+)
-#       urlSubstitutionExp: ${1}.player1.tictactoe.com:${2}
-#       sslTargetOverrideUrlSubstitutionExp: ${1}.player1.tictactoe.com
-#       mappedHost: peer0.player1.tictactoe.com
+entityMatchers:
+  peer:
+    # the below matcher will allow dynamic discovery to use the anchor peer (peer0.org1.example.com)
+    # as a template for all org1 discovered peers config
+    - pattern: (\w*)peer0.player1.tictactoe.com(\w*)
+      urlSubstitutionExp: localhost:7051
+      sslTargetOverrideUrlSubstitutionExp: peer0.player1.tictactoe.com
+      mappedHost: peer0.player1.tictactoe.com
 
-#     - pattern: (\w+).player2.tictactoe.com:(\d+)
-#       urlSubstitutionExp: ${1}.player2.tictactoe.com:${2}
-#       sslTargetOverrideUrlSubstitutionExp: ${1}.player2.tictactoe.com
-#       mappedHost: peer0.player2.tictactoe.com
+    - pattern: (\w*)peer0.player2.tictactoe.com(\w*)
+      urlSubstitutionExp: localhost:9051
+      sslTargetOverrideUrlSubstitutionExp: peer0.player2.tictactoe.com
+      mappedHost: peer0.player2.tictactoe.com
