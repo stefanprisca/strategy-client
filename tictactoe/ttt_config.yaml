@@ -13,7 +13,7 @@ client:
     level: info
   # Root of the MSP directories with keys and certs.
   cryptoconfig:
-    path: ${SCFIXTURES}/ttt/
+    path: ${SCFIXTURES}/ttt/crypto-config/
 
   # Some SDKs support pluggable KV stores, the properties under "credentialStore"
   # are implementation specific
@@ -55,166 +55,24 @@ client:
 # section.
 #
 channels:
-
-  # Default channel is used if channel configuration is missing or if defined channel configuration is missing info
-  # If channel doesn't define peers then peers from default channel will be used
-  # If channel doesn't define orderes then orderes from default channel will be used
-  # If channel doesn't define policies then policies from default channel will be used.
-  # Also, if channel defines policies and some policy info is missing than that missing info will be filled from default channel.
-  _default:
-
-    # Optional. list of peers from participating orgs
-    peers:
-      peer1.player1.tictactoe.com:
-        # [Optional]. will this peer be sent transaction proposals for endorsement? The peer must
-        # have the chaincode installed. The app can also use this property to decide which peers
-        # to send the chaincode install request. Default: true
-        endorsingPeer: true
-
-        # [Optional]. will this peer be sent query proposals? The peer must have the chaincode
-        # installed. The app can also use this property to decide which peers to send the
-        # chaincode install request. Default: true
-        chaincodeQuery: true
-
-        # [Optional]. will this peer be sent query proposals that do not require chaincodes, like
-        # queryBlock(), queryTransaction(), etc. Default: true
-        ledgerQuery: true
-
-        # [Optional]. will this peer be the target of the SDK's listener registration? All peers can
-        # produce events but the app typically only needs to connect to one to listen to events.
-        # Default: true
-        eventSource: true
-
-    # [Optional]. The application can use these options to perform channel operations like retrieving channel
-    # config etc.
-    policies:
-      #[Optional] options for retrieving channel configuration blocks
-      queryChannelConfig:
-        #[Optional] min number of success responses (from targets/peers)
-        minResponses: 1
-        #[Optional] channel config will be retrieved for these number of random targets
-        maxTargets: 1
-        #[Optional] retry options for query config block
-        retryOpts:
-          #[Optional] number of retry attempts
-          attempts: 5
-          #[Optional] the back off interval for the first retry attempt
-          initialBackoff: 500ms
-          #[Optional] the maximum back off interval for any retry attempt
-          maxBackoff: 5s
-          #[Optional] he factor by which the initial back off period is exponentially incremented
-          backoffFactor: 2.0
-      #[Optional] options for retrieving discovery info
-      discovery:
-        #[Optional] discovery info will be retrieved for these number of random targets
-        maxTargets: 2
-        #[Optional] retry options for retrieving discovery info
-        retryOpts:
-          #[Optional] number of retry attempts
-          attempts: 4
-          #[Optional] the back off interval for the first retry attempt
-          initialBackoff: 500ms
-          #[Optional] the maximum back off interval for any retry attempt
-          maxBackoff: 5s
-          #[Optional] he factor by which the initial back off period is exponentially incremented
-          backoffFactor: 2.0
-
-      #[Optional] options for the event service
-      eventService:
-        # [Optional] resolverStrategy specifies the peer resolver strategy to use when connecting to a peer
-        # Possible values: [PreferOrg (default), MinBlockHeight, Balanced]
-        #
-        # PreferOrg:
-        #   Determines which peers are suitable based on block height lag threshold, although will prefer the peers in the
-        #   current org (as long as their block height is above a configured threshold). If none of the peers from the current org
-        #   are suitable then a peer from another org is chosen.
-        # MinBlockHeight:
-        #   Chooses the best peer according to a block height lag threshold. The maximum block height of all peers is
-        #   determined and the peers whose block heights are under the maximum height but above a provided "lag" threshold are load
-        #   balanced. The other peers are not considered.
-        # Balanced:
-        #   Chooses peers using the configured balancer.
-        resolverStrategy: PreferOrg
-
-        # [Optional] balancer is the balancer to use when choosing a peer to connect to
-        # Possible values: [Random (default), RoundRobin]
-        balancer: Random
-
-        # [Optional] blockHeightLagThreshold sets the block height lag threshold. This value is used for choosing a peer
-        # to connect to. If a peer is lagging behind the most up-to-date peer by more than the given number of
-        # blocks then it will be excluded from selection.
-        # Note that this parameter is applicable only when minBlockHeightResolverMode is set to ResolveByThreshold.
-        # Default: 5
-        blockHeightLagThreshold: 5
-
-        # [Optional] reconnectBlockHeightLagThreshold - the event client will disconnect from the peer if the peer's
-        # block height falls behind the specified number of blocks and will reconnect to a better performing peer.
-        # Note that this parameter is only applicable if peerMonitor is set to Enabled (default).
-        # Default: 10
-        # NOTES:
-        #   - Setting this value too low may cause the event client to disconnect/reconnect too frequently, thereby
-        #     affecting performance.
-        reconnectBlockHeightLagThreshold: 8
-
-        # [Optional] peerMonitorPeriod is the period in which the connected peer is monitored to see if
-        # the event client should disconnect from it and reconnect to another peer.
-        # Default: 0 (disabled) for Balanced resolverStrategy; 5s for PreferOrg and MinBlockHeight strategy
-        peerMonitorPeriod: 6s
-
-
   #[Required if _default not defined; Optional if _default defined].
   # name of the channel
   tttchannel:
-
-    # list of orderers designated by the application to use for transactions on this
-    # channel. This list can be a result of access control ("player1" can only access "ordererA"), or
-    # operational decisions to share loads from applications among the orderers.  The values must
-    # be "names" of orgs defined under "organizations/peers"
-    # deprecated: not recommended, to override any orderer configuration items, entity matchers should be used.
-#    orderers:
-#      - orderer.tictactoe.com
-
-    #[Required if _default peers not defined; Optional if _default peers defined].
-    # list of peers from participating orgs
     peers:
       peer0.player1.tictactoe.com:
-        # [Optional]. will this peer be sent transaction proposals for endorsement? The peer must
-        # have the chaincode installed. The app can also use this property to decide which peers
-        # to send the chaincode install request. Default: true
         endorsingPeer: true
-
-        # [Optional]. will this peer be sent query proposals? The peer must have the chaincode
-        # installed. The app can also use this property to decide which peers to send the
-        # chaincode install request. Default: true
         chaincodeQuery: true
 
-        # [Optional]. will this peer be sent query proposals that do not require chaincodes, like
-        # queryBlock(), queryTransaction(), etc. Default: true
         ledgerQuery: true
 
-        # [Optional]. will this peer be the target of the SDK's listener registration? All peers can
-        # produce events but the app typically only needs to connect to one to listen to events.
-        # Default: true
         eventSource: true
       
       peer0.player2.tictactoe.com:
-        # [Optional]. will this peer be sent transaction proposals for endorsement? The peer must
-        # have the chaincode installed. The app can also use this property to decide which peers
-        # to send the chaincode install request. Default: true
         endorsingPeer: true
-
-        # [Optional]. will this peer be sent query proposals? The peer must have the chaincode
-        # installed. The app can also use this property to decide which peers to send the
-        # chaincode install request. Default: true
         chaincodeQuery: true
 
-        # [Optional]. will this peer be sent query proposals that do not require chaincodes, like
-        # queryBlock(), queryTransaction(), etc. Default: true
         ledgerQuery: true
 
-        # [Optional]. will this peer be the target of the SDK's listener registration? All peers can
-        # produce events but the app typically only needs to connect to one to listen to events.
-        # Default: true
         eventSource: true
 
 
@@ -222,7 +80,7 @@ channels:
 # list of participating organizations in this network
 #
 organizations:
-  player1:
+  Player1:
     mspid: Player1MSP
 
     # This org's MSP store (absolute path or relative to client.cryptoconfig)
@@ -231,20 +89,7 @@ organizations:
     peers:
       - peer0.player1.tictactoe.com
 
-    # [Optional]. Certificate Authorities issue certificates for identification purposes in a Fabric based
-    # network. Typically certificates provisioning is done in a separate process outside of the
-    # runtime network. Fabric-CA is a special certificate authority that provides a REST APIs for
-    # dynamic certificate management (enroll, revoke, re-enroll). The following section is only for
-    # Fabric-CA servers.
-    certificateAuthorities:
-      - ca.player1.tictactoe.com
-
-  # the profile will contain public information about organizations other than the one it belongs to.
-  # These are necessary information to make transaction lifecycles work, including MSP IDs and
-  # peers with a public URL to send transaction proposals. The file will not contain private
-  # information reserved for members of the organization, such as admin key and certificate,
-  # fabric-ca registrar enroll ID and secret, etc.
-  player2:
+  Player2:
     mspid: Player2MSP
 
     # This org's MSP store (absolute path or relative to client.cryptoconfig)
@@ -253,16 +98,13 @@ organizations:
     peers:
       - peer0.player2.tictactoe.com
 
-    certificateAuthorities:
-      - ca.player2.tictactoe.com
-
   # Orderer Org name
-  ordererorg:
+  Orderer:
       # Membership Service Provider ID for this organization
       mspID: OrdererMSP
 
       # Needed to load users crypto keys and certs for this org (absolute path or relative to global crypto path, DEV mode)
-      cryptoPath: ordererOrganizations/tictactoe.com/users/{username}@tictactoe.com/msp
+      cryptoPath: ${SCFIXTURES}/ttt/crypto-config/ordererOrganizations/tictactoe.com/users/{username}@tictactoe.com/msp
 
 
 #
@@ -336,48 +178,16 @@ peers:
     tlsCACerts:
       path: ${SCFIXTURES}/ttt/crypto-config/peerOrganizations/player2.tictactoe.com/tlsca/tlsca.player2.tictactoe.com-cert.pem
 
-#
-# Fabric-CA is a special kind of Certificate Authority provided by Hyperledger Fabric which allows
-# certificate management to be done via REST APIs. Application may choose to use a standard
-# Certificate Authority instead of Fabric-CA, in which case this section would not be specified.
-#
-certificateAuthorities:
-  ca.player1.tictactoe.com:
-    # [Optional] Default: Infer from hostname
-    url: https://ca.player1.tictactoe.com:7054
-    tlsCACerts:
-      # Comma-Separated list of paths
-      path: ${SCFIXTURES}/ttt/crypto-config/peerOrganizations/player1.tictactoe.com/tlsca/tlsca.player1.tictactoe.com-cert.pem
-      # Client key and cert for SSL handshake with Fabric CA
-      client:
-        key:
-          path: ${SCFIXTURES}/ttt/crypto-config/peerOrganizations/player1.tictactoe.com/users/User1@player1.tictactoe.com/tls/client.key
-        cert:
-          path: ${SCFIXTURES}/ttt/crypto-config/peerOrganizations/player1.tictactoe.com/users/User1@player1.tictactoe.com/tls/client.crt
+# entityMatchers:
+#   peer:
+#     # the below matcher will allow dynamic discovery to use the anchor peer (peer0.org1.example.com)
+#     # as a template for all org1 discovered peers config
+#     - pattern: (\w+).player1.tictactoe.com:(\d+)
+#       urlSubstitutionExp: ${1}.player1.tictactoe.com:${2}
+#       sslTargetOverrideUrlSubstitutionExp: ${1}.player1.tictactoe.com
+#       mappedHost: peer0.player1.tictactoe.com
 
-    # Fabric-CA supports dynamic user enrollment via REST APIs. A "root" user, a.k.a registrar, is
-    # needed to enroll and invoke new users.
-    registrar:
-      enrollId: admin
-      enrollSecret: adminpw
-    # [Optional] The optional name of the CA.
-    caName: ca.player1.tictactoe.com
-  ca.player2.tictactoe.com:
-    url: https://ca.player2.tictactoe.com:8054
-    tlsCACerts:
-      # Comma-Separated list of paths
-      path: ${SCFIXTURES}/ttt/crypto-config/peerOrganizations/player2.tictactoe.com/tlsca/tlsca.player2.tictactoe.com-cert.pem
-      # Client key and cert for SSL handshake with Fabric CA
-      client:
-        key:
-          path: ${SCFIXTURES}/ttt/crypto-config/peerOrganizations/player2.tictactoe.com/users/User1@player2.tictactoe.com/tls/client.key
-        cert:
-          path: ${SCFIXTURES}/ttt/crypto-config/peerOrganizations/player2.tictactoe.com/users/User1@player2.tictactoe.com/tls/client.crt
-
-     # Fabric-CA supports dynamic user enrollment via REST APIs. A "root" user, a.k.a registrar, is
-     # needed to enroll and invoke new users.
-    registrar:
-      enrollId: admin
-      enrollSecret: adminpw
-    # [Optional] The optional name of the CA.
-    caName: ca.player2.tictactoe.com
+#     - pattern: (\w+).player2.tictactoe.com:(\d+)
+#       urlSubstitutionExp: ${1}.player2.tictactoe.com:${2}
+#       sslTargetOverrideUrlSubstitutionExp: ${1}.player2.tictactoe.com
+#       mappedHost: peer0.player2.tictactoe.com
