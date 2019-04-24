@@ -1,0 +1,244 @@
+Organizations:
+    - &Orderer
+        Name: Orderer
+        ID: OrdererMSP
+        MSPDir: ../../crypto-config/ordererOrganizations/tfc.com/msp
+        Policies:
+            Readers:
+                Type: Signature
+                Rule: "OR('OrdererMSP.member')"
+            Writers:
+                Type: Signature
+                Rule: "OR('OrdererMSP.member')"
+            Admins:
+                Type: Signature
+                Rule: "OR('OrdererMSP.admin')"
+
+    - &Player1
+        Name: Player1
+        ID: Player1MSP
+        MSPDir: ../../crypto-config/peerOrganizations/player1.tfc.com/msp
+        Policies:
+            Readers:
+                Type: Signature
+                Rule: "OR('Player1MSP.admin', 'Player1MSP.peer', 'Player1MSP.client')"
+            Writers:
+                Type: Signature
+                Rule: "OR('Player1MSP.admin', 'Player1MSP.client')"
+            Admins:
+                Type: Signature
+                Rule: "OR('Player1MSP.admin')"
+        AnchorPeers:
+            - Host: peer0.player1.tfc.com
+              Port: 7051
+
+    - &Player2
+        Name: Player2
+        ID: Player2MSP
+
+        MSPDir: ../../crypto-config/peerOrganizations/player2.tfc.com/msp
+        Policies:
+            Readers:
+                Type: Signature
+                Rule: "OR('Player2MSP.admin', 'Player2MSP.peer', 'Player2MSP.client')"
+            Writers:
+                Type: Signature
+                Rule: "OR('Player2MSP.admin', 'Player2MSP.client')"
+            Admins:
+                Type: Signature
+                Rule: "OR('Player2MSP.admin')"
+        AnchorPeers:
+            - Host: peer0.player2.tfc.com
+              Port: 7051
+
+    - &Player3
+        Name: Player3
+        ID: Player3MSP
+
+        MSPDir: ../../crypto-config/peerOrganizations/player3.tfc.com/msp
+        Policies:
+            Readers:
+                Type: Signature
+                Rule: "OR('Player3MSP.admin', 'Player3MSP.peer', 'Player3MSP.client')"
+            Writers:
+                Type: Signature
+                Rule: "OR('Player3MSP.admin', 'Player3MSP.client')"
+            Admins:
+                Type: Signature
+                Rule: "OR('Player3MSP.admin')"
+        AnchorPeers:
+            - Host: peer0.player3.tfc.com
+              Port: 7051
+
+    - &Player4
+        Name: Player4
+        ID: Player4MSP
+
+        MSPDir: ../../crypto-config/peerOrganizations/player4.tfc.com/msp
+        Policies:
+            Readers:
+                Type: Signature
+                Rule: "OR('Player4MSP.admin', 'Player4MSP.peer', 'Player4MSP.client')"
+            Writers:
+                Type: Signature
+                Rule: "OR('Player4MSP.admin', 'Player4MSP.client')"
+            Admins:
+                Type: Signature
+                Rule: "OR('Player4MSP.admin')"
+        AnchorPeers:
+            - Host: peer0.player4.tfc.com
+              Port: 7051
+
+    - &Player5
+        Name: Player5
+        ID: Player5MSP
+
+        MSPDir: ../../crypto-config/peerOrganizations/player5.tfc.com/msp
+        Policies:
+            Readers:
+                Type: Signature
+                Rule: "OR('Player5MSP.admin', 'Player5MSP.peer', 'Player5MSP.client')"
+            Writers:
+                Type: Signature
+                Rule: "OR('Player5MSP.admin', 'Player5MSP.client')"
+            Admins:
+                Type: Signature
+                Rule: "OR('Player5MSP.admin')"
+        AnchorPeers:
+            - Host: peer0.player5.tfc.com
+              Port: 7051
+
+# see <https://hyperledger-fabric.readthedocs.io/en/release-1.3/capability_requirements.html>
+Capabilities:
+
+  Channel: &ChannelCapabilities
+        V1_3: true
+
+  Orderer: &OrdererCapabilities
+        V1_1: true
+
+  Application: &ApplicationCapabilities
+        V1_3: true
+        V1_2: false
+        V1_1: false
+
+Application: &ApplicationDefaults
+
+    Organizations:
+
+    Policies:
+        Readers:
+            Type: ImplicitMeta
+            Rule: "ANY Readers"
+        Writers:
+            Type: ImplicitMeta
+            Rule: "ANY Writers"
+        Admins:
+            Type: ImplicitMeta
+            Rule: "MAJORITY Admins"
+
+    Capabilities:
+        <<: *ApplicationCapabilities
+
+Orderer: &OrdererDefaults
+
+    OrdererType: kafka
+
+    Addresses:
+        - orderer.tfc.com:7050
+
+    BatchTimeout: 2s
+
+    BatchSize:
+        MaxMessageCount: 10
+        AbsoluteMaxBytes: 99 MB
+        PreferredMaxBytes: 512 KB
+
+    Kafka:
+        Brokers:
+            - 127.0.0.1:9092
+
+    Organizations:
+
+    Policies:
+        Readers:
+            Type: ImplicitMeta
+            Rule: "ANY Readers"
+        Writers:
+            Type: ImplicitMeta
+            Rule: "ANY Writers"
+        Admins:
+            Type: ImplicitMeta
+            Rule: "MAJORITY Admins"
+        BlockValidation:
+            Type: ImplicitMeta
+            Rule: "ANY Writers"
+
+Channel: &ChannelDefaults
+
+    Policies:
+        Readers:
+            Type: ImplicitMeta
+            Rule: "ANY Readers"
+        Writers:
+            Type: ImplicitMeta
+            Rule: "ANY Writers"
+        Admins:
+            Type: ImplicitMeta
+            Rule: "MAJORITY Admins"
+
+    Capabilities:
+        <<: *ChannelCapabilities
+
+Profiles:
+
+    TFCOrdererGenesis:
+        <<: *ChannelDefaults
+        Orderer:
+            <<: *OrdererDefaults
+            Organizations:
+                - *Orderer
+            Capabilities:
+                <<: *OrdererCapabilities
+        Consortiums:
+            TFCConsortium:
+                Organizations:
+                    - *{{.Red}}
+                    - *{{.Green}}
+                    - *{{.Blue}}
+
+    TFCDevModeKafka:
+        <<: *ChannelDefaults
+        Capabilities:
+            <<: *ChannelCapabilities
+        Orderer:
+            <<: *OrdererDefaults
+            OrdererType: kafka
+            Kafka:
+                Brokers:
+                - kafka.tfc.com:9092
+
+            Organizations:
+            - *Orderer
+            Capabilities:
+                <<: *OrdererCapabilities
+        Application:
+            <<: *ApplicationDefaults
+            Organizations:
+            - <<: *Orderer
+        Consortiums:
+            TFCConsortium:
+                Organizations:
+                - *{{.Red}}
+                - *{{.Green}}
+                - *{{.Blue}}
+    TFCChannel:
+        Consortium: TFCConsortium
+        Application:
+            <<: *ApplicationDefaults
+            Organizations:
+                - *{{.Red}}
+                - *{{.Green}}
+                - *{{.Blue}}
+            Capabilities:
+                <<: *ApplicationCapabilities

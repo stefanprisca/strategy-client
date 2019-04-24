@@ -1,0 +1,249 @@
+#
+# Copyright 2019 Stefan Prisca
+#
+# The file is a copy of the Hyperledger e2e configuration found at
+# < https://github.com/hyperledger/fabric-sdk-go/blob/master/test/fixtures/config/config_e2e.yaml >
+
+version: 0.0.0
+
+client:
+  organization: player1
+
+  logging:
+    level: info
+  # Root of the MSP directories with keys and certs.
+  cryptoconfig:
+    path: ${SCFIXTURES}/tfc/crypto-config/
+
+  # Some SDKs support pluggable KV stores, the properties under "credentialStore"
+  # are implementation specific
+  credentialStore:
+    # [Optional]. Used by user store. Not needed if all credentials are embedded in configuration
+    # and enrollments are performed elswhere.
+    path: "/tmp/state-store"
+
+    # [Optional]. Specific to the CryptoSuite implementation used by GO SDK. Software-based implementations
+    # requiring a key store. PKCS#11 based implementations does not.
+    cryptoStore:
+      # Specific to the underlying KeyValueStore that backs the crypto key store.
+      path: /tmp/msp
+
+  # [Optional] BCCSP config for the client. Used by GO SDK.
+  BCCSP:
+    security:
+     enabled: true
+     default:
+      provider: "SW"
+     hashAlgorithm: "SHA2"
+     softVerify: true
+     level: 256
+
+  tlsCerts:
+    # [Optional]. Use system certificate pool when connecting to peers, orderers (for negotiating TLS) Default: false
+    systemCertPool: true
+
+    # [Optional]. Client key and cert for TLS handshake with peers and orderers
+    client:
+      key:
+        path: ${SCFIXTURES}/tfc/crypto-config/peerOrganizations/player1.tfc.com/users/User1@player1.tfc.com/tls/client.key
+      cert:
+        path: ${SCFIXTURES}/tfc/crypto-config/peerOrganizations/player1.tfc.com/users/User1@player1.tfc.com/tls/client.crt
+#
+# list of participating organizations in this network
+#
+organizations:
+  Player1:
+    mspid: Player1MSP
+
+    # This org's MSP store (absolute path or relative to client.cryptoconfig)
+    cryptoPath:  peerOrganizations/player1.tfc.com/users/{username}@player1.tfc.com/msp
+
+    peers:
+      - peer0.player1.tfc.com
+
+  Player2:
+    mspid: Player2MSP
+
+    # This org's MSP store (absolute path or relative to client.cryptoconfig)
+    cryptoPath:  peerOrganizations/player2.tfc.com/users/{username}@player2.tfc.com/msp
+
+    peers:
+      - peer0.player2.tfc.com
+  
+  Player3:
+    mspid: Player3MSP
+
+    # This org's MSP store (absolute path or relative to client.cryptoconfig)
+    cryptoPath:  peerOrganizations/player3.tfc.com/users/{username}@player3.tfc.com/msp
+
+    peers:
+      - peer0.player3.tfc.com
+
+  Player4:
+    mspid: Player4MSP
+
+    # This org's MSP store (absolute path or relative to client.cryptoconfig)
+    cryptoPath:  peerOrganizations/player4.tfc.com/users/{username}@player4.tfc.com/msp
+
+    peers:
+      - peer0.player4.tfc.com
+
+  Player5:
+    mspid: Player5MSP
+
+    # This org's MSP store (absolute path or relative to client.cryptoconfig)
+    cryptoPath:  peerOrganizations/player5.tfc.com/users/{username}@player5.tfc.com/msp
+
+    peers:
+      - peer0.player5.tfc.com
+
+  # Orderer Org name
+  Orderer:
+      # Membership Service Provider ID for this organization
+      mspID: OrdererMSP
+
+      # Needed to load users crypto keys and certs for this org (absolute path or relative to global crypto path, DEV mode)
+      cryptoPath: ${SCFIXTURES}/tfc/crypto-config/ordererOrganizations/tfc.com/users/{username}@tfc.com/msp
+
+
+#
+# List of orderers to send transaction and channel create/update requests to. For the time
+# being only one orderer is needed. If more than one is defined, which one get used by the
+# SDK is implementation specific. Consult each SDK's documentation for its handling of orderers.
+#
+orderers:
+  orderer.tfc.com:
+    # [Optional] Default: Infer from hostname
+    url: orderer.tfc.com:7050
+
+    # these are standard properties defined by the gRPC library
+    # they will be passed in as-is to gRPC client constructor
+    grpcOptions:
+      ssl-target-name-override: orderer.tfc.com
+      # These parameters should be set in coordination with the keepalive policy on the server,
+      # as incompatible settings can result in closing of connection.
+      # When duration of the 'keep-alive-time' is set to 0 or less the keep alive client parameters are disabled
+      keep-alive-time: 0s
+      keep-alive-timeout: 20s
+      keep-alive-permit: false
+      fail-fast: false
+      # allow-insecure will be taken into consideration if address has no protocol defined, if true then grpc or else grpcs
+      allow-insecure: false
+
+    tlsCACerts:
+      # Certificate location absolute path
+      path: ${SCFIXTURES}/tfc/crypto-config/ordererOrganizations/tfc.com/tlsca/tlsca.tfc.com-cert.pem
+
+#
+# List of peers to send various requests to, including endorsement, query
+# and event listener registration.
+#
+peers:
+  peer0.player1.tfc.com:
+    # this URL is used to send endorsement and query requests
+    # [Optional] Default: Infer from hostname
+    url: peer0.player1.tfc.com:7051
+
+    grpcOptions:
+      ssl-target-name-override: peer0.player1.tfc.com
+      # These parameters should be set in coordination with the keepalive policy on the server,
+      # as incompatible settings can result in closing of connection.
+      # When duration of the 'keep-alive-time' is set to 0 or less the keep alive client parameters are disabled
+      keep-alive-time: 0s
+      keep-alive-timeout: 20s
+      keep-alive-permit: false
+      fail-fast: false
+      # allow-insecure will be taken into consideration if address has no protocol defined, if true then grpc or else grpcs
+      allow-insecure: false
+
+    tlsCACerts:
+      # Certificate location absolute path
+      path: ${SCFIXTURES}/tfc/crypto-config/peerOrganizations/player1.tfc.com/tlsca/tlsca.player1.tfc.com-cert.pem
+
+  peer0.player2.tfc.com:
+    url: peer0.player2.tfc.com:8051
+    grpcOptions:
+      ssl-target-name-override: peer0.player2.tfc.com
+      # These parameters should be set in coordination with the keepalive policy on the server,
+      # as incompatible settings can result in closing of connection.
+      # When duration of the 'keep-alive-time' is set to 0 or less the keep alive client parameters are disabled
+      keep-alive-time: 0s
+      keep-alive-timeout: 20s
+      keep-alive-permit: false
+      fail-fast: false
+      # allow-insecure will be taken into consideration if address has no protocol defined, if true then grpc or else grpcs
+      allow-insecure: false
+
+    tlsCACerts:
+      path: ${SCFIXTURES}/tfc/crypto-config/peerOrganizations/player2.tfc.com/tlsca/tlsca.player2.tfc.com-cert.pem
+
+  peer0.player3.tfc.com:
+    url: peer0.player3.tfc.com:9051
+    grpcOptions:
+      ssl-target-name-override: peer0.player3.tfc.com
+      # These parameters should be set in coordination with the keepalive policy on the server,
+      # as incompatible settings can result in closing of connection.
+      # When duration of the 'keep-alive-time' is set to 0 or less the keep alive client parameters are disabled
+      keep-alive-time: 0s
+      keep-alive-timeout: 20s
+      keep-alive-permit: false
+      fail-fast: false
+      # allow-insecure will be taken into consideration if address has no protocol defined, if true then grpc or else grpcs
+      allow-insecure: false
+
+    tlsCACerts:
+      path: ${SCFIXTURES}/tfc/crypto-config/peerOrganizations/player3.tfc.com/tlsca/tlsca.player3.tfc.com-cert.pem
+
+  peer0.player4.tfc.com:
+    url: peer0.player4.tfc.com:10051
+    grpcOptions:
+      ssl-target-name-override: peer0.player4.tfc.com
+      # These parameters should be set in coordination with the keepalive policy on the server,
+      # as incompatible settings can result in closing of connection.
+      # When duration of the 'keep-alive-time' is set to 0 or less the keep alive client parameters are disabled
+      keep-alive-time: 0s
+      keep-alive-timeout: 20s
+      keep-alive-permit: false
+      fail-fast: false
+      # allow-insecure will be taken into consideration if address has no protocol defined, if true then grpc or else grpcs
+      allow-insecure: false
+
+    tlsCACerts:
+      path: ${SCFIXTURES}/tfc/crypto-config/peerOrganizations/player4.tfc.com/tlsca/tlsca.player4.tfc.com-cert.pem
+
+  peer0.player5.tfc.com:
+    url: peer0.player5.tfc.com:11051
+    grpcOptions:
+      ssl-target-name-override: peer0.player5.tfc.com
+      # These parameters should be set in coordination with the keepalive policy on the server,
+      # as incompatible settings can result in closing of connection.
+      # When duration of the 'keep-alive-time' is set to 0 or less the keep alive client parameters are disabled
+      keep-alive-time: 0s
+      keep-alive-timeout: 20s
+      keep-alive-permit: false
+      fail-fast: false
+      # allow-insecure will be taken into consideration if address has no protocol defined, if true then grpc or else grpcs
+      allow-insecure: false
+
+    tlsCACerts:
+      path: ${SCFIXTURES}/tfc/crypto-config/peerOrganizations/player5.tfc.com/tlsca/tlsca.player5.tfc.com-cert.pem
+
+
+entityMatchers:
+  peer:
+    # the below matcher will allow dynamic discovery to use the anchor peer (peer0.org1.example.com)
+    # as a template for all org1 discovered peers config
+    - pattern: (\w*)peer0.player1.tfc.com(\w*)
+      urlSubstitutionExp: localhost:7051
+      sslTargetOverrideUrlSubstitutionExp: peer0.player1.tfc.com
+      mappedHost: peer0.player1.tfc.com
+
+    - pattern: (\w*)peer0.player2.tfc.com(\w*)
+      urlSubstitutionExp: localhost:9051
+      sslTargetOverrideUrlSubstitutionExp: peer0.player2.tfc.com
+      mappedHost: peer0.player2.tfc.com
+  orderer:
+    - pattern: (\w*)orderer.tfc.com(\w*)
+      urlSubstitutionExp: localhost:7050
+      sslTargetOverrideUrlSubstitutionExp: orderer.tfc.com
+      mappedHost: orderer.tfc.com

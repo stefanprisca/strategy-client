@@ -85,7 +85,7 @@ func TestE2E(t *testing.T) {
 	require.NoError(t, err, "could not get channel client")
 	log.Println("Connected client for player1")
 
-	mvPayload := &tttPf.MoveTrxPayload{Mark: tttPf.Mark_X, Position: 3}
+	mvPayload := &tttPf.MoveTrxPayload{Mark: tttPf.Mark_O, Position: 3}
 	trxArgs := &tttPf.TrxArgs{Type: tttPf.TrxType_MOVE, MovePayload: mvPayload}
 
 	trxBytes, err := proto.Marshal(trxArgs)
