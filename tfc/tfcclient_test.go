@@ -32,17 +32,15 @@ import (
 
 	"github.com/hyperledger/fabric-sdk-go/pkg/core/config"
 	"github.com/hyperledger/fabric-sdk-go/pkg/fabsdk"
+
 )
 
 const (
 	org1             = "Player1"
 	org2             = "Player2"
-	ordererAdminUser = "Admin"
-	ordererOrgName   = "OrdererOrg"
-	org1AdminUser    = "Admin"
-	org2AdminUser    = "Admin"
-	org1User         = "User1"
-	org2User         = "User1"
+	adminUser 		= "Admin"
+	ordererOrg   = "Orderer"
+	user         = "User1"
 	ordererEndpoint  = "orderer.tfc.com"
 )
 
@@ -73,45 +71,68 @@ func TestE2E(t *testing.T) {
 	integration.CleanupUserData(t, sdk)
 	defer integration.CleanupUserData(t, sdk)
 
-	adminContext := sdk.Context(fabsdk.WithUser(org1AdminUser), fabsdk.WithOrg(org1))
+
+	chanName := "testchan2"
+
+	// cfgPath, err := generateChannelArtifacts(chanName)
+	// require.NoError(t, err)
+
+	// err = createChannel(sdk, chanName, cfgPath, org1)
+	// require.NoError(t, err)
+
+	err = joinChannel(sdk, chanName, org1)
+	require.NoError(t, err)
+
+}
+
+func createChannel(sdk *fabsdk.FabricSDK, chanName, cfgPath, org string) error {
+
+	client, err := mspclient.New(sdk.Context(), mspclient.WithOrg(org))
+	if err != nil {
+		return fmt.Errorf("Failed to create new resource management client: %s", err)
+	}
+	orgIdentity, err := client.GetSigningIdentity(adminUser)
+	if err != nil {
+		return fmt.Errorf("Failed to create new resource management client: %s", err)
+	}
+
+	adminContext := sdk.Context(fabsdk.WithUser(adminUser), fabsdk.WithOrg(ordererOrg))
+	// Org resource management client
+	orgResMgmt, err := resmgmt.New(adminContext)
+	if err != nil {
+		return fmt.Errorf("Failed to create new resource management client: %s", err)
+	}
+
+	req := resmgmt.SaveChannelRequest{ChannelID: chanName,
+		ChannelConfigPath: cfgPath,
+		SigningIdentities: []msp.SigningIdentity{orgIdentity}}
+
+	_, err = orgResMgmt.SaveChannel(req,
+		resmgmt.WithRetry(retry.DefaultResMgmtOpts),
+		resmgmt.WithOrdererEndpoint(ordererEndpoint))
+
+	if err != nil {
+		return fmt.Errorf("could not create channel: %s", err)
+	}
+	return nil
+}
+
+func joinChannel(sdk *fabsdk.FabricSDK, chanName, org string) error {
+
+	adminContext := sdk.Context(fabsdk.WithUser(adminUser), fabsdk.WithOrg(org))
 
 	// Org resource management client
 	orgResMgmt, err := resmgmt.New(adminContext)
 	if err != nil {
-		t.Fatalf("Failed to create new resource management client: %s", err)
+		return fmt.Errorf("Failed to create new resource management client: %s", err)
 	}
-
-	mspClient, err := mspclient.New(sdk.Context(), mspclient.WithOrg(org1))
-	if err != nil {
-		t.Fatal(err)
-	}
-	adminIdentity, err := mspClient.GetSigningIdentity(org1AdminUser)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	chanName := "testchan"
-
-	cfgPath, err := generateChannelArtifacts(chanName)
-	require.NoError(t, err)
-
-	req := resmgmt.SaveChannelRequest{ChannelID: chanName,
-		ChannelConfigPath: cfgPath,
-		SigningIdentities: []msp.SigningIdentity{adminIdentity}}
-
-	txID, err := orgResMgmt.SaveChannel(req,
-		resmgmt.WithRetry(retry.DefaultResMgmtOpts),
-		resmgmt.WithOrdererEndpoint(ordererEndpoint))
-
-	require.Nil(t, err, "error should be nil")
-	require.NotEmpty(t, txID, "transaction ID should be populated")
 
 	// Org peers join channel
-	if err = orgResMgmt.JoinChannel(chanName, resmgmt.WithRetry(retry.DefaultResMgmtOpts),
-		resmgmt.WithOrdererEndpoint("orderer.tfc.com")); err != nil {
-		t.Fatalf("Org peers failed to JoinChannel: %s", err)
+	if err := orgResMgmt.JoinChannel(chanName, resmgmt.WithRetry(retry.DefaultResMgmtOpts),
+		resmgmt.WithOrdererEndpoint(ordererEndpoint)); err != nil {
+		return fmt.Errorf("Org peers failed to JoinChannel: %s", err)
 	}
-
+	return nil
 }
 
 type chanTemplateData struct {
@@ -120,7 +141,7 @@ type chanTemplateData struct {
 	Blue  string
 }
 
-func TestChanGen(t *testing.T) {
+func _TestChanGen(t *testing.T) {
 	_, err := generateChannelArtifacts("foo")
 	require.NoError(t, err)
 }
@@ -170,3 +191,5 @@ func generateChannelArtifacts(channelName string) (string, error) {
 
 	return channelTxPath, nil
 }
+
+
