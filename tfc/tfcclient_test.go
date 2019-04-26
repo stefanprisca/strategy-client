@@ -34,7 +34,7 @@ import (
 	"github.com/hyperledger/fabric-sdk-go/pkg/common/errors/retry"
 	"github.com/hyperledger/fabric-sdk-go/pkg/common/providers/msp"
 	"github.com/hyperledger/fabric-sdk-go/third_party/github.com/hyperledger/fabric/protos/common"
-	"github.com/hyperledger/fabric-sdk-go/third_party/github.com/hyperledger/fabric/common/cauthdsl"
+	// "github.com/hyperledger/fabric-sdk-go/third_party/github.com/hyperledger/fabric/common/cauthdsl"
 
 	"github.com/hyperledger/fabric-sdk-go/test/integration"
 
@@ -76,46 +76,53 @@ type ccDescriptor struct {
 */
 func TestE2E(t *testing.T) {
 
-	chanName := "gafar"
-	chanOrgs := []string{org1, org2, org3} 
-	ccPolicy := cauthdsl.SignedByAnyMember([]string{org1})
+	chanName := "fafasd"
+	chanOrgs := []string{org1, org3, org2} 
+	// ccPolicy := cauthdsl.SignedByAnyMember([]string{org1})
 
 	chanCfg, err := generateChannelArtifacts(chanName, chanOrgs)
 	require.NoError(t, err)
 
-	startGame(t, "./player1Config.yaml", chanCfg, chanName)
+	startGame(t, "config/Player1Config.yaml", chanCfg, chanName)
 
 	for _, org := range chanOrgs {
-		err = joinChannel(sdk, chanName, cfgPath, org)
+		clientCfg := path.Join("config", org+"Config.yaml")
+		err = joinGame(clientCfg, chanName, chanCfg, org)
 		require.NoError(t, err)	
 	}
 	
-	ccPath := "github.com/stefanprisca/strategy-code/tictactoe"
-	ccPkg, err := createCC(ccPath)
-	require.NoError(t, err)
+	// ccPath := "github.com/stefanprisca/strategy-code/tictactoe"
+	// ccPkg, err := createCC(ccPath)
+	// require.NoError(t, err)
 
-	ccDesc := ccDescriptor{
-		ccID: chanName,
-		ccPath: ccPath,
-		ccVersion: "0.1.0",
-		ccPackage: ccPkg,
+	// ccDesc := ccDescriptor{
+	// 	ccID: chanName,
+	// 	ccPath: ccPath,
+	// 	ccVersion: "0.1.0",
+	// 	ccPackage: ccPkg,
+	// }
+
+	// err = installChaincode(sdk, ccDesc, ccPolicy, org1, chanName)
+	// require.NoError(t, err)
+
+	// err = invokeChaincode(sdk, org1, chanName)
+	// require.NoError(t, err)
+}
+
+func makeSDK(clientCfg string) (*fabsdk.FabricSDK, error) {
+
+	configOpt := config.FromFile(clientCfg)
+	sdk, err := fabsdk.New(configOpt)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to create new SDK: %s", err)
 	}
-
-	err = installChaincode(sdk, ccDesc, ccPolicy, org1, chanName)
-	require.NoError(t, err)
-
-	err = invokeChaincode(sdk, org1, chanName)
-	require.NoError(t, err)
+	return sdk, nil
 }
 
 func startGame(t *testing.T, clientCfg, chanCfg, chanName string) {
 
-	configOpt := config.FromFile(clientCfg)
-
-	sdk, err := fabsdk.New(configOpt)
-	if err != nil {
-		t.Fatalf("Failed to create new SDK: %s", err)
-	}
+	sdk, err := makeSDK(clientCfg)
+	require.NoError(t, err)
 	defer sdk.Close()
 
 	// Delete all private keys from the crypto suite store
@@ -171,7 +178,15 @@ func createChannel(sdk *fabsdk.FabricSDK, chanName, cfgPath, org string) error {
 	return nil
 }
 
-func joinChannel(sdk *fabsdk.FabricSDK, chanName, cfgPath, org string) error {
+func joinGame(clientCfg string, chanName, cfgPath, org string) error {
+
+	sdk, err := makeSDK(clientCfg)
+	if err != nil {
+		return fmt.Errorf("could not create sdk for %s : %s", clientCfg, err)
+	}
+	defer sdk.Close()
+
+	fmt.Printf("Joining channel for peer %s", clientCfg)
 
 	adminContext := sdk.Context(fabsdk.WithUser(adminUser), fabsdk.WithOrg(org))
 
@@ -181,33 +196,34 @@ func joinChannel(sdk *fabsdk.FabricSDK, chanName, cfgPath, org string) error {
 		return fmt.Errorf("Failed to create new resource management client: %s", err)
 	}
 
-	client, err := mspclient.New(sdk.Context(), mspclient.WithOrg(org))
-	if err != nil {
-		return fmt.Errorf("Failed to create new resource management client: %s", err)
-	}
-	orgIdentity, err := client.GetSigningIdentity(adminUser)
-	if err != nil {
-		return fmt.Errorf("Failed to create new resource management client: %s", err)
-	}
-
-	req := resmgmt.SaveChannelRequest{
-		ChannelID:         chanName,
-		ChannelConfigPath: path.Join(cfgPath, org+"anchors.tx"),
-		SigningIdentities: []msp.SigningIdentity{orgIdentity},
-	}
-	if _, err := orgResMgmt.SaveChannel(req,
-		 resmgmt.WithRetry(retry.DefaultResMgmtOpts),
-		 resmgmt.WithOrdererEndpoint(ordererEndpoint)); err != nil {
-		return err
-	}
-
-
 	// Org peers join channel
 	if err := orgResMgmt.JoinChannel(chanName, resmgmt.WithRetry(retry.DefaultResMgmtOpts),
-		resmgmt.WithOrdererEndpoint(ordererEndpoint),
-		resmgmt.WithTargetEndpoints(org1Endpoint)); err != nil {
+		resmgmt.WithOrdererEndpoint(ordererEndpoint)); err != nil {
 		return fmt.Errorf("Org peers failed to JoinChannel: %s", err)
 	}
+	return nil
+
+	// client, err := mspclient.New(sdk.Context(), mspclient.WithOrg(org))
+	// if err != nil {
+	// 	return fmt.Errorf("Failed to create new resource management client: %s", err)
+	// }
+	// orgIdentity, err := client.GetSigningIdentity(adminUser)
+	// if err != nil {
+	// 	return fmt.Errorf("Failed to create new resource management client: %s", err)
+	// }
+	// fmt.Printf("Joining channel for peer %s channel: %s", clientCfg, chanName)
+
+	// req := resmgmt.SaveChannelRequest{
+	// 	ChannelID:         chanName,
+	// 	ChannelConfigPath: path.Join(cfgPath, org+"anchors.tx"),
+	// 	SigningIdentities: []msp.SigningIdentity{orgIdentity},
+	// }
+
+	// if _, err := orgResMgmt.SaveChannel(req,
+	// 	 resmgmt.WithRetry(retry.DefaultResMgmtOpts),
+	// 	 resmgmt.WithOrdererEndpoint(ordererEndpoint)); err != nil {
+	// 	return fmt.Errorf("Anchor peers failed to update for channel: %s", err)
+	// }
 	return nil
 }
 
