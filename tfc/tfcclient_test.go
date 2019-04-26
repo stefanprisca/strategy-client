@@ -14,6 +14,7 @@
 package tfc
 
 import (
+	"log"
 	"fmt"
 	"os"
 	"os/exec"
@@ -34,7 +35,7 @@ import (
 	"github.com/hyperledger/fabric-sdk-go/pkg/common/errors/retry"
 	"github.com/hyperledger/fabric-sdk-go/pkg/common/providers/msp"
 	"github.com/hyperledger/fabric-sdk-go/third_party/github.com/hyperledger/fabric/protos/common"
-	// "github.com/hyperledger/fabric-sdk-go/third_party/github.com/hyperledger/fabric/common/cauthdsl"
+	"github.com/hyperledger/fabric-sdk-go/third_party/github.com/hyperledger/fabric/common/cauthdsl"
 
 	// "github.com/hyperledger/fabric-sdk-go/test/integration"
 
@@ -65,7 +66,7 @@ type ccDescriptor struct {
 */
 func TestE2E(t *testing.T) {
 
-	gameName := "test_ttt2"
+	gameName := "testttt666"
 	chanOrgs := []string{Org1, Org2, Org3}
 
 	chanCfg, err := generateChannelArtifacts(gameName, chanOrgs)
@@ -80,31 +81,10 @@ func TestE2E(t *testing.T) {
 		defer c.SDK.Close()
 		players = append(players, c)
 	}
-	//ccPolicy := cauthdsl.SignedByAnyMember(chanOrgs)
 
 	err = startGame(players, chanCfg, gameName)
 	require.NoError(t, err)
-
-	// for _, org := range chanOrgs {
-	// 	clientCfg := path.Join("config", org+"Config.yaml")
-	// 	err = joinGame(clientCfg, chanName, chanCfg, org)
-	// 	require.NoError(t, err)	
-	// }
 	
-	// ccPath := "github.com/stefanprisca/strategy-code/tictactoe"
-	// ccPkg, err := createCC(ccPath)
-	// require.NoError(t, err)
-
-	// ccDesc := ccDescriptor{
-	// 	ccID: chanName,
-	// 	ccPath: ccPath,
-	// 	ccVersion: "0.1.0",
-	// 	ccPackage: ccPkg,
-	// }
-
-	// err = installChaincode(sdk, ccDesc, ccPolicy, org1, chanName)
-	// require.NoError(t, err)
-
 	// err = invokeChaincode(sdk, org1, chanName)
 	// require.NoError(t, err)
 }
@@ -154,16 +134,61 @@ func generateChannelArtifacts(channelName string, chanOrgs []string) (string, er
 func startGame(players []*TFCClient, chanCfg, chanName string) error {
 	chanTxPath := path.Join(chanCfg, chanName+".tx")
 
+	// Create the game channel
 	p1 := players[0]
-	err := createChannel(p1, chanName, chanTxPath)
+	signatures := getSignatures(players)
+	err := createChannel(p1, signatures, chanName, chanTxPath)
 	if err != nil {
 		return fmt.Errorf("could not create game channel: %s", err)
 	}
 
+	// join all the peers to the channel
+	for _, p := range players {
+		err = joinGame(p, chanName)
+		if err != nil{
+			return fmt.Errorf("could not join game channel: %s", err)
+		} 
+		err = updateAnchorPeers(p, chanName)
+		if err != nil{
+			return fmt.Errorf("could not update anchor peers: %s", err)
+		} 
+	}
+
+
+	ccPath := "github.com/stefanprisca/strategy-code/tictactoe"
+	ccPkg, err := createCC(ccPath)
+	if err != nil{
+		return fmt.Errorf("could not create cc package: %s", err)
+	} 
+
+	// Install game chaincode to the peers
+	ccReq := resmgmt.InstallCCRequest{
+		Name: chanName, 
+		Path: ccPath, 
+		Version: "0.1.0", 
+		Package: ccPkg}
+
+	ccPolicy := cauthdsl.AcceptAllPolicy
+	for _, p := range players {
+		err = deployChaincode(p, ccReq, ccPolicy, chanName)
+		if err != nil{
+			return fmt.Errorf("could not install cc: %s", err)
+		} 
+		
+	}
+	
 	return nil
 }
 
-func createChannel(player *TFCClient, chanName, chanTxPath string) error {
+func getSignatures(players []*TFCClient) []msp.SigningIdentity {
+	result := []msp.SigningIdentity{}
+	for _, p := range players {
+		result = append(result, p.SigningIdentity)
+	}
+	return result
+}
+
+func createChannel(player *TFCClient, signatures []msp.SigningIdentity, chanName, chanTxPath string) error {
 
 	r, err := os.Open(chanTxPath)
 	if err != nil {
@@ -172,12 +197,11 @@ func createChannel(player *TFCClient, chanName, chanTxPath string) error {
 	defer r.Close()
 
 	orgResMgmt := player.ResMgmt
-	orgIdentity := player.SigningIdentity
 	resp, err := orgResMgmt.SaveChannel(
 		resmgmt.SaveChannelRequest{
 			ChannelID: chanName, 
 			ChannelConfig: r, 
-			SigningIdentities: []msp.SigningIdentity{orgIdentity}, 
+			SigningIdentities: signatures, 
 			},
 		resmgmt.WithOrdererEndpoint(OrdererEndpoint),
 		resmgmt.WithRetry(retry.DefaultResMgmtOpts))
@@ -192,52 +216,40 @@ func createChannel(player *TFCClient, chanName, chanTxPath string) error {
 	return nil
 }
 
-func joinGame(clientCfg string, chanName, cfgPath, org string) error {
+func joinGame(player *TFCClient, chanName string) error {
+	log.Printf("Joining channel for peer %s channel: %s", player.OrgID , chanName)
 
-	sdk, err := makeSDK(clientCfg)
-	if err != nil {
-		return fmt.Errorf("could not create sdk for %s : %s", clientCfg, err)
-	}
-	defer sdk.Close()
-
-	fmt.Printf("Joining channel for peer %s", clientCfg)
-
-	adminContext := sdk.Context(fabsdk.WithUser(AdminUser), fabsdk.WithOrg(org))
-
-	// Org resource management client
-	orgResMgmt, err := resmgmt.New(adminContext)
-	if err != nil {
-		return fmt.Errorf("Failed to create new resource management client: %s", err)
-	}
-
+	orgResMgmt := player.ResMgmt
 	// Org peers join channel
-	if err := orgResMgmt.JoinChannel(chanName, resmgmt.WithRetry(retry.DefaultResMgmtOpts),
+	if err := orgResMgmt.JoinChannel(chanName, 
+		resmgmt.WithRetry(retry.DefaultResMgmtOpts),
 		resmgmt.WithOrdererEndpoint(OrdererEndpoint)); err != nil {
-		return fmt.Errorf("Org peers failed to JoinChannel: %s", err)
+		return fmt.Errorf("Org %s peers failed to JoinChannel: %s", player.OrgID, err)
 	}
 	return nil
+}
 
-	// client, err := mspclient.New(sdk.Context(), mspclient.WithOrg(org))
-	// if err != nil {
-	// 	return fmt.Errorf("Failed to create new resource management client: %s", err)
-	// }
-	// orgIdentity, err := client.GetSigningIdentity(adminUser)
-	// if err != nil {
-	// 	return fmt.Errorf("Failed to create new resource management client: %s", err)
-	// }
-	// fmt.Printf("Joining channel for peer %s channel: %s", clientCfg, chanName)
+func updateAnchorPeers(player *TFCClient, chanName string) error{
+	log.Printf("Updating anchor peers for %s channel: %s", player.OrgID , chanName)
+	signs := []msp.SigningIdentity{player.SigningIdentity}
+	req := resmgmt.SaveChannelRequest{
+		ChannelID:         chanName,
+		ChannelConfigPath: player.AnchorPeerConfigFile,
+		SigningIdentities: signs,
+	}
 
-	// req := resmgmt.SaveChannelRequest{
-	// 	ChannelID:         chanName,
-	// 	ChannelConfigPath: path.Join(cfgPath, org+"anchors.tx"),
-	// 	SigningIdentities: []msp.SigningIdentity{orgIdentity},
-	// }
+	orgResMgmt := player.ResMgmt 
+	tx, err := orgResMgmt.SaveChannel(req,
+		resmgmt.WithRetry(retry.DefaultResMgmtOpts),
+		resmgmt.WithOrdererEndpoint(OrdererEndpoint))
+	if err != nil {
+		return fmt.Errorf("Anchor peers failed to update for channel: %s", err)
+	}
 
-	// if _, err := orgResMgmt.SaveChannel(req,
-	// 	 resmgmt.WithRetry(retry.DefaultResMgmtOpts),
-	// 	 resmgmt.WithOrdererEndpoint(ordererEndpoint)); err != nil {
-	// 	return fmt.Errorf("Anchor peers failed to update for channel: %s", err)
-	// }
+	if tx.TransactionID == "" {
+		return fmt.Errorf("Failed to save channel")
+	}
+
 	return nil
 }
 
@@ -250,35 +262,37 @@ func createCC(ccPath string) (*resource.CCPackage, error) {
 	return ccPkg, nil
 }
 
-func installChaincode(sdk *fabsdk.FabricSDK, ccDesc ccDescriptor, ccPolicy *common.SignaturePolicyEnvelope, org, chanName string) error {
-
-	adminContext := sdk.Context(fabsdk.WithUser(AdminUser), fabsdk.WithOrg(org))
+func deployChaincode(player *TFCClient, ccReq resmgmt.InstallCCRequest, 
+	ccPolicy *common.SignaturePolicyEnvelope, chanName string) error {
 
 	// Org resource management client
-	orgResMgmt, err := resmgmt.New(adminContext)
-	if err != nil {
-		return fmt.Errorf("Failed to create new resource management client: %s", err)
-	}
+	orgResMgmt := player.ResMgmt
 
-	// Install example cc to org peers
-	installCCReq := resmgmt.InstallCCRequest{Name: ccDesc.ccID, Path: ccDesc.ccPath, Version: ccDesc.ccVersion, Package: ccDesc.ccPackage}
-	_, err = orgResMgmt.InstallCC(installCCReq, resmgmt.WithRetry(retry.DefaultResMgmtOpts))
+	log.Printf("Installing chaincode %s for %s channel: %s", ccReq.Name, player.OrgID , chanName)
+	_, err := orgResMgmt.InstallCC(ccReq, 
+		resmgmt.WithRetry(retry.DefaultResMgmtOpts))
 	if err != nil {
 		return fmt.Errorf("failed to install cc: %s",err)
 	}
 
+	log.Printf("Instantiating chaincode %s for %s channel: %s", ccReq.Name, player.OrgID , chanName)
 	// Org resource manager will instantiate 'example_cc' on channel
 	_, err = orgResMgmt.InstantiateCC(
 		chanName,
 		resmgmt.InstantiateCCRequest{
-			Name: ccDesc.ccID, 
-			Path: ccDesc.ccPath, 
-			Version: ccDesc.ccVersion, 
+			Name: ccReq.Name, 
+			Path: ccReq.Path, 
+			Version: ccReq.Version, 
 			Args: [][]byte{},
 			Policy:     ccPolicy,
 		},
 		resmgmt.WithRetry(retry.DefaultResMgmtOpts),
 	)
+	
+	if err != nil {
+		return fmt.Errorf("failed to instantiate cc: %s",err)
+	}
+	
 	return err
 }
 

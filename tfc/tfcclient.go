@@ -28,7 +28,7 @@ type TFCClient struct {
 
 const (
 	Org1             = "Player1"
-	Org2             = "Player2"
+	Org2             = "Player4"
 	Org3             = "Player3"
 	Org1Endpoint 	= "peer0.player1.tfc.com"
 	AdminUser 		= "Admin"
