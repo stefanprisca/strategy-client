@@ -22,6 +22,7 @@ type TFCClient struct {
 	ResMgmt              *resmgmt.Client
 	PeerEndpoint         string
 	AnchorPeerConfigFile string
+	Endorser             string
 	SDK                  *fabsdk.FabricSDK
 }
 
@@ -67,6 +68,7 @@ func NewTFCClient(fabCfgPath, clientCfgPath, org string) (*TFCClient, error) {
 		ResMgmt:              orgResMgmt,
 		PeerEndpoint:         "peer0." + strings.ToLower(org) + ".tfc.com",
 		AnchorPeerConfigFile: path.Join(fabCfgPath, org+"anchors.tx"),
+		Endorser:             org + "MSP.peer",
 		SDK:                  sdk,
 	}
 

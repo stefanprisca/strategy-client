@@ -67,8 +67,8 @@ type ccDescriptor struct {
 */
 func TestE2E(t *testing.T) {
 
-	gameName := "newchan"
-	chanOrgs := []string{Player1, Player2, Player4}
+	gameName := "blubla22132p"
+	chanOrgs := []string{Player1, Player2, Player3}
 
 	cfgPath, err := generateChannelArtifacts(gameName, chanOrgs)
 	require.NoError(t, err)
@@ -80,8 +80,8 @@ func TestE2E(t *testing.T) {
 	err = startGame(players, cfgPath, gameName)
 	require.NoError(t, err)
 
-	// err = invokeChaincode(sdk, org1, chanName)
-	// require.NoError(t, err)
+	err = invokeChaincode(players[0], gameName)
+	require.NoError(t, err)
 }
 
 func generateChannelArtifacts(channelName string, chanOrgs []string) (string, error) {
@@ -209,7 +209,16 @@ func startGame(players []*TFCClient, chanCfg, chanName string) error {
 		Version: "0.1.0",
 		Package: ccPkg}
 
-	ccPolicy := cauthdsl.AcceptAllPolicy
+	ccPolicyString := fmt.Sprintf("OR('%s', '%s', '%s')",
+		players[0].Endorser, players[1].Endorser, players[2].Endorser)
+
+	log.Printf("Created policy string: %s", ccPolicyString)
+
+	ccPolicy, err := cauthdsl.FromString(ccPolicyString)
+	if err != nil {
+		return fmt.Errorf("could not create cc policy: %s", err)
+	}
+
 	err = deployChaincode(players, ccReq, ccPolicy, chanName)
 	if err != nil {
 		return fmt.Errorf("could not install cc: %s", err)
@@ -313,7 +322,8 @@ func deployChaincode(players []*TFCClient, ccReq resmgmt.InstallCCRequest,
 	}
 
 	p1 := players[0]
-	log.Printf("Instantiating chaincode %s for %s channel: %s", ccReq.Name, p1.OrgID, chanName)
+	log.Printf("Instantiating chaincode %s for %s on channel %s with policy %s",
+		ccReq.Name, p1.OrgID, chanName, ccPolicy)
 	// Org resource manager will instantiate 'example_cc' on channel
 	_, err := p1.ResMgmt.InstantiateCC(
 		chanName,
@@ -334,32 +344,30 @@ func deployChaincode(players []*TFCClient, ccReq resmgmt.InstallCCRequest,
 	return err
 }
 
-func invokeChaincode(sdk *fabsdk.FabricSDK, org, chanName string) error {
-
-	adminContext := sdk.Context(fabsdk.WithUser(AdminUser), fabsdk.WithOrg(org))
+func invokeChaincode(player *TFCClient, chanName string) error {
 
 	// Org resource management client
-	orgResMgmt, err := resmgmt.New(adminContext)
-	if err != nil {
-		return fmt.Errorf("Failed to create new resource management client: %s", err)
-	}
+	orgResMgmt := player.ResMgmt
 
 	ccResp, err := orgResMgmt.QueryInstantiatedChaincodes(chanName)
 	if err != nil {
 		return fmt.Errorf("could not get chaincodes: %s", err)
 	}
-	fmt.Println("Got the chaincodes installed", ccResp.Chaincodes)
+	log.Println("Got the chaincodes installed", ccResp.Chaincodes)
 
-	clientChannelContext := sdk.ChannelContext(chanName, fabsdk.WithUser(User), fabsdk.WithOrg(org))
+	clientChannelContext := player.SDK.ChannelContext(chanName,
+		fabsdk.WithUser(User),
+		fabsdk.WithOrg(player.OrgID))
+
 	// Channel client is used to query and execute transactions (Org1 is default org)
 	client, err := channel.New(clientChannelContext)
 	if err != nil {
 		return fmt.Errorf("could not get channel client: %s", err)
 	}
 
-	fmt.Printf("Connected client for %s\n", org)
+	log.Printf("Connected client for %s\n", player.OrgID)
 
-	mvPayload := &tttPf.MoveTrxPayload{Mark: tttPf.Mark_O, Position: 3}
+	mvPayload := &tttPf.MoveTrxPayload{Mark: tttPf.Mark_X, Position: 3}
 	trxArgs := &tttPf.TrxArgs{Type: tttPf.TrxType_MOVE, MovePayload: mvPayload}
 
 	trxBytes, err := proto.Marshal(trxArgs)
