@@ -15,14 +15,18 @@ package tfc
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"os/exec"
 	"path"
+	"strconv"
+	"strings"
 	"testing"
 	"text/template"
+
 	"github.com/golang/protobuf/proto"
 
-	mspclient "github.com/hyperledger/fabric-sdk-go/pkg/client/msp"
+	//mspclient "github.com/hyperledger/fabric-sdk-go/pkg/client/msp"
 
 	packager "github.com/hyperledger/fabric-sdk-go/pkg/fab/ccpackager/gopackager"
 	tttPf "github.com/stefanprisca/strategy-protobufs/tictactoe"
@@ -30,40 +34,27 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/fabric-sdk-go/pkg/client/channel"
-	"github.com/hyperledger/fabric-sdk-go/pkg/client/resmgmt" 
+	"github.com/hyperledger/fabric-sdk-go/pkg/client/resmgmt"
 	"github.com/hyperledger/fabric-sdk-go/pkg/common/errors/retry"
 	"github.com/hyperledger/fabric-sdk-go/pkg/common/providers/msp"
+	"github.com/hyperledger/fabric-sdk-go/third_party/github.com/hyperledger/fabric/common/cauthdsl"
 	"github.com/hyperledger/fabric-sdk-go/third_party/github.com/hyperledger/fabric/protos/common"
-	// "github.com/hyperledger/fabric-sdk-go/third_party/github.com/hyperledger/fabric/common/cauthdsl"
 
-	"github.com/hyperledger/fabric-sdk-go/test/integration"
+	// "github.com/hyperledger/fabric-sdk-go/test/integration"
 
 	"github.com/hyperledger/fabric-sdk-go/pkg/fab/resource"
 
-	"github.com/hyperledger/fabric-sdk-go/pkg/core/config"
 	"github.com/hyperledger/fabric-sdk-go/pkg/fabsdk"
-
-)
-
-const (
-	org1             = "Player1"
-	org2             = "Player2"
-	org3             = "Player3"
-	org1Endpoint 	= "peer0.player1.tfc.com"
-	adminUser 		= "Admin"
-	ordererOrg   = "Orderer"
-	user         = "User1"
-	ordererEndpoint  = "orderer.tfc.com"
 )
 
 var (
 	scfixturesPath = path.Join(os.Getenv("SCFIXTURES"), "tfc")
-	gopath = os.Getenv("GOPATH")
+	gopath         = os.Getenv("GOPATH")
 )
 
 type ccDescriptor struct {
-	ccID string
-	ccPath string
+	ccID      string
+	ccPath    string
 	ccVersion string
 	ccPackage *resource.CCPackage
 }
@@ -76,96 +67,189 @@ type ccDescriptor struct {
 */
 func TestE2E(t *testing.T) {
 
-	chanName := "fafasd"
-	chanOrgs := []string{org1, org3, org2} 
-	// ccPolicy := cauthdsl.SignedByAnyMember([]string{org1})
+	gameName := "blubla22132p"
+	chanOrgs := []string{Player1, Player2, Player3}
 
-	chanCfg, err := generateChannelArtifacts(chanName, chanOrgs)
+	cfgPath, err := generateChannelArtifacts(gameName, chanOrgs)
 	require.NoError(t, err)
 
-	startGame(t, "config/Player1Config.yaml", chanCfg, chanName)
+	players, err := generatePlayers(cfgPath, chanOrgs)
+	require.NoError(t, err)
+	defer closePlayers(players)
 
+	err = startGame(players, cfgPath, gameName)
+	require.NoError(t, err)
+
+	err = invokeChaincode(players[0], gameName)
+	require.NoError(t, err)
+}
+
+func generateChannelArtifacts(channelName string, chanOrgs []string) (string, error) {
+	/*
+		1) Fill out chan template
+		2) Generate using configtex tool
+		3) Submit chan transaction
+		4) Join channel.
+	*/
+	cfgPath := path.Join(scfixturesPath, "temp", channelName)
+	err := os.MkdirAll(cfgPath, 0777)
+	if err != nil {
+		return "", fmt.Errorf("Could not create config path. %s", err)
+	}
+
+	cfgFilePath := path.Join(cfgPath, "configtx.yaml")
+	err = executeTemplate(cfgFilePath, "configtx.yaml_template", chanOrgs)
+	if err != nil {
+		return "", fmt.Errorf("could not generate channel cfg: %s", err)
+	}
+
+	genScriptPath := path.Join(cfgPath, "generateChan.sh")
+	err = executeTemplate(genScriptPath, "generateChan.sh_template", chanOrgs)
+	if err != nil {
+		return "", fmt.Errorf("could not generate channel cfg: %s", err)
+	}
+
+	os.Setenv("FABRIC_CFG_PATH", cfgPath)
+	os.Setenv("CHANNEL_NAME", channelName)
+	fmt.Println(cfgPath)
+
+	changen := exec.Command("/bin/sh", genScriptPath, channelName)
+	result, err := changen.CombinedOutput()
+	print(result)
+	if err != nil {
+		return "", fmt.Errorf("Failed to execute commad. %s \n %s", err.Error(), string(result))
+	}
+
+	return cfgPath, nil
+}
+
+func generatePlayers(cfgPath string, chanOrgs []string) ([]*TFCClient, error) {
+
+	players := []*TFCClient{}
+	lowCapOrgs := []string{}
 	for _, org := range chanOrgs {
-		clientCfg := path.Join("config", org+"Config.yaml")
-		err = joinGame(clientCfg, chanName, chanCfg, org)
-		require.NoError(t, err)	
+		lowCapOrgs = append(lowCapOrgs, strings.ToLower(org))
 	}
-	
-	// ccPath := "github.com/stefanprisca/strategy-code/tictactoe"
-	// ccPkg, err := createCC(ccPath)
-	// require.NoError(t, err)
 
-	// ccDesc := ccDescriptor{
-	// 	ccID: chanName,
-	// 	ccPath: ccPath,
-	// 	ccVersion: "0.1.0",
-	// 	ccPackage: ccPkg,
-	// }
+	for i, org := range chanOrgs {
+		cfgName := org + "Config.yaml"
+		clientCfg := path.Join(cfgPath, cfgName)
+		tmplName := "p" + strconv.Itoa(i) + "Config.yaml_template"
+		err := executeTemplate(clientCfg, tmplName, lowCapOrgs)
+		if err != nil {
+			return nil, fmt.Errorf("could not create client cfg: %s", err)
+		}
 
-	// err = installChaincode(sdk, ccDesc, ccPolicy, org1, chanName)
-	// require.NoError(t, err)
+		c, err := NewTFCClient(cfgPath, clientCfg, org)
+		if err != nil {
+			return nil, fmt.Errorf("could not create new client: %s", err)
+		}
+		players = append(players, c)
+	}
 
-	// err = invokeChaincode(sdk, org1, chanName)
-	// require.NoError(t, err)
+	return players, nil
 }
 
-func makeSDK(clientCfg string) (*fabsdk.FabricSDK, error) {
+func closePlayers(players []*TFCClient) {
+	for _, p := range players {
+		p.SDK.Close()
+	}
+}
 
-	configOpt := config.FromFile(clientCfg)
-	sdk, err := fabsdk.New(configOpt)
+func executeTemplate(filePath, tplName string, chanOrgs []string) error {
+
+	resultFile, err := os.Create(filePath)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to create new SDK: %s", err)
+		return fmt.Errorf("Could not create file. %s", err)
 	}
-	return sdk, nil
+	defer resultFile.Close()
+
+	tplPath := path.Join("templates", "fabric", tplName)
+	tmpl, err := template.ParseFiles(tplPath)
+	if err != nil {
+		return fmt.Errorf("Could not load template. %s", err)
+	}
+	tmpl.Execute(resultFile, chanOrgs)
+	return nil
 }
 
-func startGame(t *testing.T, clientCfg, chanCfg, chanName string) {
-
-	sdk, err := makeSDK(clientCfg)
-	require.NoError(t, err)
-	defer sdk.Close()
-
-	// Delete all private keys from the crypto suite store
-	// and users from the user store at the end
-	integration.CleanupUserData(t, sdk)
-	defer integration.CleanupUserData(t, sdk)
-
+func startGame(players []*TFCClient, chanCfg, chanName string) error {
 	chanTxPath := path.Join(chanCfg, chanName+".tx")
-	err = createChannel(sdk, chanName, chanTxPath, org1)
-	require.NoError(t, err)
+
+	// Create the game channel
+	p1 := players[0]
+	signatures := getSignatures(players)
+	err := createChannel(p1, signatures, chanName, chanTxPath)
+	if err != nil {
+		return fmt.Errorf("could not create game channel: %s", err)
+	}
+
+	// join all the peers to the channel
+	for _, p := range players {
+		err = joinGame(p, chanName)
+		if err != nil {
+			return fmt.Errorf("could not join game channel: %s", err)
+		}
+		err = updateAnchorPeers(p, chanName)
+		if err != nil {
+			return fmt.Errorf("could not update anchor peers: %s", err)
+		}
+	}
+
+	ccPath := "github.com/stefanprisca/strategy-code/tictactoe"
+	ccPkg, err := createCC(ccPath)
+	if err != nil {
+		return fmt.Errorf("could not create cc package: %s", err)
+	}
+
+	// Install game chaincode to the peers
+	ccReq := resmgmt.InstallCCRequest{
+		Name:    chanName,
+		Path:    ccPath,
+		Version: "0.1.0",
+		Package: ccPkg}
+
+	ccPolicyString := fmt.Sprintf("OR('%s', '%s', '%s')",
+		players[0].Endorser, players[1].Endorser, players[2].Endorser)
+
+	log.Printf("Created policy string: %s", ccPolicyString)
+
+	ccPolicy, err := cauthdsl.FromString(ccPolicyString)
+	if err != nil {
+		return fmt.Errorf("could not create cc policy: %s", err)
+	}
+
+	err = deployChaincode(players, ccReq, ccPolicy, chanName)
+	if err != nil {
+		return fmt.Errorf("could not install cc: %s", err)
+	}
+	return nil
 }
 
-func createChannel(sdk *fabsdk.FabricSDK, chanName, cfgPath, org string) error {
-
-	client, err := mspclient.New(sdk.Context(), mspclient.WithOrg(org))
-	if err != nil {
-		return fmt.Errorf("Failed to create new resource management client: %s", err)
+func getSignatures(players []*TFCClient) []msp.SigningIdentity {
+	result := []msp.SigningIdentity{}
+	for _, p := range players {
+		result = append(result, p.SigningIdentity)
 	}
-	orgIdentity, err := client.GetSigningIdentity(adminUser)
-	if err != nil {
-		return fmt.Errorf("Failed to create new resource management client: %s", err)
-	}
+	return result
+}
 
-	adminContext := sdk.Context(fabsdk.WithUser(adminUser), fabsdk.WithOrg(ordererOrg))
-	// Org resource management client
-	orgResMgmt, err := resmgmt.New(adminContext)
-	if err != nil {
-		return fmt.Errorf("Failed to create new resource management client: %s", err)
-	}
+func createChannel(player *TFCClient, signatures []msp.SigningIdentity, chanName, chanTxPath string) error {
 
-	r, err := os.Open(cfgPath)
+	r, err := os.Open(chanTxPath)
 	if err != nil {
 		return fmt.Errorf("failed to open channel config: %s", err)
 	}
 	defer r.Close()
 
+	orgResMgmt := player.ResMgmt
 	resp, err := orgResMgmt.SaveChannel(
 		resmgmt.SaveChannelRequest{
-			ChannelID: chanName, 
-			ChannelConfig: r, 
-			SigningIdentities: []msp.SigningIdentity{orgIdentity}, 
-			},
-		resmgmt.WithOrdererEndpoint(ordererEndpoint),
+			ChannelID:         chanName,
+			ChannelConfig:     r,
+			SigningIdentities: signatures,
+		},
+		resmgmt.WithOrdererEndpoint(OrdererEndpoint),
 		resmgmt.WithRetry(retry.DefaultResMgmtOpts))
 	if err != nil {
 		return fmt.Errorf("failed to save channel: %s", err)
@@ -178,52 +262,40 @@ func createChannel(sdk *fabsdk.FabricSDK, chanName, cfgPath, org string) error {
 	return nil
 }
 
-func joinGame(clientCfg string, chanName, cfgPath, org string) error {
+func joinGame(player *TFCClient, chanName string) error {
+	log.Printf("Joining channel for peer %s channel: %s", player.OrgID, chanName)
 
-	sdk, err := makeSDK(clientCfg)
-	if err != nil {
-		return fmt.Errorf("could not create sdk for %s : %s", clientCfg, err)
-	}
-	defer sdk.Close()
-
-	fmt.Printf("Joining channel for peer %s", clientCfg)
-
-	adminContext := sdk.Context(fabsdk.WithUser(adminUser), fabsdk.WithOrg(org))
-
-	// Org resource management client
-	orgResMgmt, err := resmgmt.New(adminContext)
-	if err != nil {
-		return fmt.Errorf("Failed to create new resource management client: %s", err)
-	}
-
+	orgResMgmt := player.ResMgmt
 	// Org peers join channel
-	if err := orgResMgmt.JoinChannel(chanName, resmgmt.WithRetry(retry.DefaultResMgmtOpts),
-		resmgmt.WithOrdererEndpoint(ordererEndpoint)); err != nil {
-		return fmt.Errorf("Org peers failed to JoinChannel: %s", err)
+	if err := orgResMgmt.JoinChannel(chanName,
+		resmgmt.WithRetry(retry.DefaultResMgmtOpts),
+		resmgmt.WithOrdererEndpoint(OrdererEndpoint)); err != nil {
+		return fmt.Errorf("Org %s peers failed to JoinChannel: %s", player.OrgID, err)
 	}
 	return nil
+}
 
-	// client, err := mspclient.New(sdk.Context(), mspclient.WithOrg(org))
-	// if err != nil {
-	// 	return fmt.Errorf("Failed to create new resource management client: %s", err)
-	// }
-	// orgIdentity, err := client.GetSigningIdentity(adminUser)
-	// if err != nil {
-	// 	return fmt.Errorf("Failed to create new resource management client: %s", err)
-	// }
-	// fmt.Printf("Joining channel for peer %s channel: %s", clientCfg, chanName)
+func updateAnchorPeers(player *TFCClient, chanName string) error {
+	log.Printf("Updating anchor peers for %s channel: %s", player.OrgID, chanName)
+	signs := []msp.SigningIdentity{player.SigningIdentity}
+	req := resmgmt.SaveChannelRequest{
+		ChannelID:         chanName,
+		ChannelConfigPath: player.AnchorPeerConfigFile,
+		SigningIdentities: signs,
+	}
 
-	// req := resmgmt.SaveChannelRequest{
-	// 	ChannelID:         chanName,
-	// 	ChannelConfigPath: path.Join(cfgPath, org+"anchors.tx"),
-	// 	SigningIdentities: []msp.SigningIdentity{orgIdentity},
-	// }
+	orgResMgmt := player.ResMgmt
+	tx, err := orgResMgmt.SaveChannel(req,
+		resmgmt.WithRetry(retry.DefaultResMgmtOpts),
+		resmgmt.WithOrdererEndpoint(OrdererEndpoint))
+	if err != nil {
+		return fmt.Errorf("Anchor peers failed to update for channel: %s", err)
+	}
 
-	// if _, err := orgResMgmt.SaveChannel(req,
-	// 	 resmgmt.WithRetry(retry.DefaultResMgmtOpts),
-	// 	 resmgmt.WithOrdererEndpoint(ordererEndpoint)); err != nil {
-	// 	return fmt.Errorf("Anchor peers failed to update for channel: %s", err)
-	// }
+	if tx.TransactionID == "" {
+		return fmt.Errorf("Failed to save channel")
+	}
+
 	return nil
 }
 
@@ -236,64 +308,66 @@ func createCC(ccPath string) (*resource.CCPackage, error) {
 	return ccPkg, nil
 }
 
-func installChaincode(sdk *fabsdk.FabricSDK, ccDesc ccDescriptor, ccPolicy *common.SignaturePolicyEnvelope, org, chanName string) error {
+func deployChaincode(players []*TFCClient, ccReq resmgmt.InstallCCRequest,
+	ccPolicy *common.SignaturePolicyEnvelope, chanName string) error {
 
-	adminContext := sdk.Context(fabsdk.WithUser(adminUser), fabsdk.WithOrg(org))
-
-	// Org resource management client
-	orgResMgmt, err := resmgmt.New(adminContext)
-	if err != nil {
-		return fmt.Errorf("Failed to create new resource management client: %s", err)
+	for _, player := range players {
+		orgResMgmt := player.ResMgmt
+		log.Printf("Installing chaincode %s for %s channel: %s", ccReq.Name, player.OrgID, chanName)
+		_, err := orgResMgmt.InstallCC(ccReq,
+			resmgmt.WithRetry(retry.DefaultResMgmtOpts))
+		if err != nil {
+			return fmt.Errorf("failed to install cc: %s", err)
+		}
 	}
 
-	// Install example cc to org peers
-	installCCReq := resmgmt.InstallCCRequest{Name: ccDesc.ccID, Path: ccDesc.ccPath, Version: ccDesc.ccVersion, Package: ccDesc.ccPackage}
-	_, err = orgResMgmt.InstallCC(installCCReq, resmgmt.WithRetry(retry.DefaultResMgmtOpts))
-	if err != nil {
-		return fmt.Errorf("failed to install cc: %s",err)
-	}
-
+	p1 := players[0]
+	log.Printf("Instantiating chaincode %s for %s on channel %s with policy %s",
+		ccReq.Name, p1.OrgID, chanName, ccPolicy)
 	// Org resource manager will instantiate 'example_cc' on channel
-	_, err = orgResMgmt.InstantiateCC(
+	_, err := p1.ResMgmt.InstantiateCC(
 		chanName,
 		resmgmt.InstantiateCCRequest{
-			Name: ccDesc.ccID, 
-			Path: ccDesc.ccPath, 
-			Version: ccDesc.ccVersion, 
-			Args: [][]byte{},
-			Policy:     ccPolicy,
+			Name:    ccReq.Name,
+			Path:    ccReq.Path,
+			Version: ccReq.Version,
+			Args:    [][]byte{},
+			Policy:  ccPolicy,
 		},
 		resmgmt.WithRetry(retry.DefaultResMgmtOpts),
 	)
+
+	if err != nil {
+		return fmt.Errorf("failed to instantiate cc: %s", err)
+	}
+
 	return err
 }
 
-func invokeChaincode(sdk *fabsdk.FabricSDK, org, chanName string) error {
-
-	adminContext := sdk.Context(fabsdk.WithUser(adminUser), fabsdk.WithOrg(org))
+func invokeChaincode(player *TFCClient, chanName string) error {
 
 	// Org resource management client
-	orgResMgmt, err := resmgmt.New(adminContext)
-	if err != nil {
-		return fmt.Errorf("Failed to create new resource management client: %s", err)
-	}
+	orgResMgmt := player.ResMgmt
 
 	ccResp, err := orgResMgmt.QueryInstantiatedChaincodes(chanName)
 	if err != nil {
 		return fmt.Errorf("could not get chaincodes: %s", err)
 	}
-	fmt.Println("Got the chaincodes installed", ccResp.Chaincodes)
+	log.Println("Got the chaincodes installed", ccResp.Chaincodes)
 
-	clientChannelContext := sdk.ChannelContext(chanName, fabsdk.WithUser(user), fabsdk.WithOrg(org))
+	clientChannelContext := player.SDK.ChannelContext(chanName,
+		fabsdk.WithUser(User),
+		fabsdk.WithOrg(player.OrgID))
+
 	// Channel client is used to query and execute transactions (Org1 is default org)
 	client, err := channel.New(clientChannelContext)
 	if err != nil {
 		return fmt.Errorf("could not get channel client: %s", err)
 	}
 
-	fmt.Printf("Connected client for %s\n", org)
+	log.Printf("Connected client for %s\n", player.OrgID)
 
-	mvPayload := &tttPf.MoveTrxPayload{Mark: tttPf.Mark_O, Position: 3}
+	mvPayload := &tttPf.MoveTrxPayload{Mark: tttPf.Mark_X, Position: 3}
 	trxArgs := &tttPf.TrxArgs{Type: tttPf.TrxType_MOVE, MovePayload: mvPayload}
 
 	trxBytes, err := proto.Marshal(trxArgs)
@@ -304,16 +378,16 @@ func invokeChaincode(sdk *fabsdk.FabricSDK, org, chanName string) error {
 
 	response, err := client.Execute(
 		channel.Request{
-			ChaincodeID: chanName, 
-			Fcn: "move", 
-			Args: [][]byte{trxBytes}},
-			channel.WithRetry(retry.DefaultChannelOpts))
-	
+			ChaincodeID: chanName,
+			Fcn:         "move",
+			Args:        [][]byte{trxBytes}},
+		channel.WithRetry(retry.DefaultChannelOpts))
+
 	if err != nil {
 		return fmt.Errorf("Failed to invoke cc: %s", err)
 	}
 	fmt.Println("Issued chaincode invoke.")
-	
+
 	gBoardBytes := response.Payload
 	gBoard := &tttPf.TttContract{}
 	err = proto.Unmarshal(gBoardBytes, gBoard)
@@ -324,53 +398,3 @@ func invokeChaincode(sdk *fabsdk.FabricSDK, org, chanName string) error {
 
 	return nil
 }
-
-func TestChanGen(t *testing.T) {
-	chanOrgs := []string{org1, org2, org3}
-	_, err := generateChannelArtifacts("foo", chanOrgs)
-	require.NoError(t, err)
-}
-
-func generateChannelArtifacts(channelName string, chanOrgs []string) (string, error) {
-	/*
-		1) Fill out chan template
-		2) Generate using configtex tool
-		3) Submit chan transaction
-		4) Join channel.
-	*/
-
-	chanTemplate, err := template.ParseFiles("templates/fabric/configtx.yaml_template")
-	if err != nil {
-		return "", fmt.Errorf("Could not load channel template. %s", err)
-	}
-	cfgPath := path.Join(scfixturesPath, "temp", channelName)
-	err = os.MkdirAll(cfgPath, 0777)
-	if err != nil {
-		return "", fmt.Errorf("Could not create config path. %s", err)
-	}
-
-	cfgFilePath := path.Join(cfgPath, "configtx.yaml")
-	cfgFile, err := os.Create(cfgFilePath)
-	if err != nil {
-		return "", fmt.Errorf("Could not create cfg file. %s", err)
-	}
-
-	defer cfgFile.Close()
-
-	chanTemplate.Execute(cfgFile, chanOrgs)
-
-	os.Setenv("FABRIC_CFG_PATH", cfgPath)
-	os.Setenv("CHANNEL_NAME", channelName)
-	fmt.Println(cfgPath)
-
-	changen := exec.Command("/bin/sh", "scripts/generateChan.sh", channelName)
-	result, err := changen.CombinedOutput()
-	print(result)
-	if err != nil {
-		return "", fmt.Errorf("Failed to execute commad. %s \n %s", err.Error(), string(result))
-	}
-
-	return cfgPath, nil
-}
-
-
