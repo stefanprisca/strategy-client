@@ -49,7 +49,7 @@ echo "#######    Generating anchor peer update for Player2   ##########"
 echo "#################################################################"
 set -x
 configtxgen -profile TFCChannel -outputAnchorPeersUpdate \
-  ${FABRIC_CFG_PATH}/Player4anchors.tx -channelID $CHANNEL_NAME -asOrg Player4
+  ${FABRIC_CFG_PATH}/Player2anchors.tx -channelID $CHANNEL_NAME -asOrg Player2
 res=$?
 set +x
 if [ $res -ne 0 ]; then

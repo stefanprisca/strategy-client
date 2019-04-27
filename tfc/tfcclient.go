@@ -2,8 +2,8 @@ package tfc
 
 import (
 	"fmt"
-	"strings"
 	"path"
+	"strings"
 
 	"github.com/hyperledger/fabric-sdk-go/pkg/client/resmgmt"
 	"github.com/hyperledger/fabric-sdk-go/pkg/common/providers/context"
@@ -16,7 +16,7 @@ import (
 
 // OrgContext provides SDK client context for a given org
 type TFCClient struct {
-	OrgID           	 string
+	OrgID                string
 	CtxProvider          context.ClientProvider
 	SigningIdentity      msp.SigningIdentity
 	ResMgmt              *resmgmt.Client
@@ -25,18 +25,16 @@ type TFCClient struct {
 	SDK                  *fabsdk.FabricSDK
 }
 
-
 const (
-	Org1             = "Player1"
-	Org2             = "Player4"
-	Org3             = "Player3"
-	Org1Endpoint 	= "peer0.player1.tfc.com"
-	AdminUser 		= "Admin"
-	OrdererOrg   = "Orderer"
-	User         = "User1"
-	OrdererEndpoint  = "orderer.tfc.com"
+	Org1            = "Player1"
+	Org2            = "Player2"
+	Org3            = "Player3"
+	Org1Endpoint    = "peer0.player1.tfc.com"
+	AdminUser       = "Admin"
+	OrdererOrg      = "Orderer"
+	User            = "User1"
+	OrdererEndpoint = "orderer.tfc.com"
 )
-
 
 func NewTFCClient(fabCfgPath, clientCfgPath, org string) (*TFCClient, error) {
 
@@ -62,14 +60,14 @@ func NewTFCClient(fabCfgPath, clientCfgPath, org string) (*TFCClient, error) {
 	}
 
 	tfcClient := &TFCClient{
-		OrgID: org,
-		CtxProvider: adminContext,
-		SigningIdentity: orgIdentity,
-		ResMgmt : orgResMgmt,
-		PeerEndpoint: "peer0."+strings.ToLower(org)+".tfc.com",
+		OrgID:                org,
+		CtxProvider:          adminContext,
+		SigningIdentity:      orgIdentity,
+		ResMgmt:              orgResMgmt,
+		PeerEndpoint:         "peer0." + strings.ToLower(org) + ".tfc.com",
 		AnchorPeerConfigFile: path.Join(fabCfgPath, org+"anchors.tx"),
-		SDK: sdk,
+		SDK:                  sdk,
 	}
-	
+
 	return tfcClient, nil
 }
