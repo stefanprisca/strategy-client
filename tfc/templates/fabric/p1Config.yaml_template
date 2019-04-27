@@ -7,7 +7,7 @@
 version: 0.0.0
 
 client:
-  organization: player1
+  organization: {{index . 1}}
 
   logging:
     level: info
@@ -45,9 +45,9 @@ client:
     # [Optional]. Client key and cert for TLS handshake with peers and orderers
     client:
       key:
-        path: ${SCFIXTURES}/tfc/crypto-config/peerOrganizations/player1.tfc.com/users/User1@player1.tfc.com/tls/client.key
+        path: ${SCFIXTURES}/tfc/crypto-config/peerOrganizations/{{index . 1}}.tfc.com/users/User1@{{index . 1}}.tfc.com/tls/client.key
       cert:
-        path: ${SCFIXTURES}/tfc/crypto-config/peerOrganizations/player1.tfc.com/users/User1@player1.tfc.com/tls/client.crt
+        path: ${SCFIXTURES}/tfc/crypto-config/peerOrganizations/{{index . 1}}.tfc.com/users/User1@{{index . 1}}.tfc.com/tls/client.crt
 
 #
 # list of participating organizations in this network
@@ -281,7 +281,7 @@ channels:
 
     # [Optional]. list of peers from participating orgs
     peers:
-      peer0.player1.tfc.com:
+      peer0.{{index . 0}}.tfc.com:
         # [Optional]. will this peer be sent transaction proposals for endorsement? The peer must
         # have the chaincode installed. The app can also use this property to decide which peers
         # to send the chaincode install request. Default: true
@@ -301,7 +301,7 @@ channels:
         # Default: true
         eventSource: true
 
-      peer0.player2.tfc.com:
+      peer0.{{index . 1}}.tfc.com:
         # [Optional]. will this peer be sent transaction proposals for endorsement? The peer must
         # have the chaincode installed. The app can also use this property to decide which peers
         # to send the chaincode install request. Default: true
@@ -321,7 +321,7 @@ channels:
         # Default: true
         eventSource: true
 
-      peer0.player3.tfc.com:
+      peer0.{{index . 2}}.tfc.com:
         # [Optional]. will this peer be sent transaction proposals for endorsement? The peer must
         # have the chaincode installed. The app can also use this property to decide which peers
         # to send the chaincode install request. Default: true

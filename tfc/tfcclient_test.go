@@ -19,6 +19,8 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"strconv"
+	"strings"
 	"testing"
 	"text/template"
 
@@ -42,7 +44,6 @@ import (
 
 	"github.com/hyperledger/fabric-sdk-go/pkg/fab/resource"
 
-	"github.com/hyperledger/fabric-sdk-go/pkg/core/config"
 	"github.com/hyperledger/fabric-sdk-go/pkg/fabsdk"
 )
 
@@ -67,22 +68,16 @@ type ccDescriptor struct {
 func TestE2E(t *testing.T) {
 
 	gameName := "newchan"
-	chanOrgs := []string{Org1, Org2, Org3}
+	chanOrgs := []string{Player1, Player2, Player4}
 
-	chanCfg, err := generateChannelArtifacts(gameName, chanOrgs)
+	cfgPath, err := generateChannelArtifacts(gameName, chanOrgs)
 	require.NoError(t, err)
 
-	players := []*TFCClient{}
+	players, err := generatePlayers(cfgPath, chanOrgs)
+	require.NoError(t, err)
+	defer closePlayers(players)
 
-	for _, org := range chanOrgs {
-		clientCfg := path.Join("config", org+"Config.yaml")
-		c, err := NewTFCClient(chanCfg, clientCfg, org)
-		require.NoError(t, err)
-		defer c.SDK.Close()
-		players = append(players, c)
-	}
-
-	err = startGame(players, chanCfg, gameName)
+	err = startGame(players, cfgPath, gameName)
 	require.NoError(t, err)
 
 	// err = invokeChaincode(sdk, org1, chanName)
@@ -96,32 +91,29 @@ func generateChannelArtifacts(channelName string, chanOrgs []string) (string, er
 		3) Submit chan transaction
 		4) Join channel.
 	*/
-
-	chanTemplate, err := template.ParseFiles("templates/fabric/configtx.yaml_template")
-	if err != nil {
-		return "", fmt.Errorf("Could not load channel template. %s", err)
-	}
 	cfgPath := path.Join(scfixturesPath, "temp", channelName)
-	err = os.MkdirAll(cfgPath, 0777)
+	err := os.MkdirAll(cfgPath, 0777)
 	if err != nil {
 		return "", fmt.Errorf("Could not create config path. %s", err)
 	}
 
 	cfgFilePath := path.Join(cfgPath, "configtx.yaml")
-	cfgFile, err := os.Create(cfgFilePath)
+	err = executeTemplate(cfgFilePath, "configtx.yaml_template", chanOrgs)
 	if err != nil {
-		return "", fmt.Errorf("Could not create cfg file. %s", err)
+		return "", fmt.Errorf("could not generate channel cfg: %s", err)
 	}
 
-	defer cfgFile.Close()
-
-	chanTemplate.Execute(cfgFile, chanOrgs)
+	genScriptPath := path.Join(cfgPath, "generateChan.sh")
+	err = executeTemplate(genScriptPath, "generateChan.sh_template", chanOrgs)
+	if err != nil {
+		return "", fmt.Errorf("could not generate channel cfg: %s", err)
+	}
 
 	os.Setenv("FABRIC_CFG_PATH", cfgPath)
 	os.Setenv("CHANNEL_NAME", channelName)
 	fmt.Println(cfgPath)
 
-	changen := exec.Command("/bin/sh", "scripts/generateChan.sh", channelName)
+	changen := exec.Command("/bin/sh", genScriptPath, channelName)
 	result, err := changen.CombinedOutput()
 	print(result)
 	if err != nil {
@@ -129,6 +121,56 @@ func generateChannelArtifacts(channelName string, chanOrgs []string) (string, er
 	}
 
 	return cfgPath, nil
+}
+
+func generatePlayers(cfgPath string, chanOrgs []string) ([]*TFCClient, error) {
+
+	players := []*TFCClient{}
+	lowCapOrgs := []string{}
+	for _, org := range chanOrgs {
+		lowCapOrgs = append(lowCapOrgs, strings.ToLower(org))
+	}
+
+	for i, org := range chanOrgs {
+		cfgName := org + "Config.yaml"
+		clientCfg := path.Join(cfgPath, cfgName)
+		tmplName := "p" + strconv.Itoa(i) + "Config.yaml_template"
+		err := executeTemplate(clientCfg, tmplName, lowCapOrgs)
+		if err != nil {
+			return nil, fmt.Errorf("could not create client cfg: %s", err)
+		}
+
+		c, err := NewTFCClient(cfgPath, clientCfg, org)
+		if err != nil {
+			return nil, fmt.Errorf("could not create new client: %s", err)
+		}
+		players = append(players, c)
+	}
+
+	return players, nil
+}
+
+func closePlayers(players []*TFCClient) {
+	for _, p := range players {
+		p.SDK.Close()
+	}
+}
+
+func executeTemplate(filePath, tplName string, chanOrgs []string) error {
+
+	resultFile, err := os.Create(filePath)
+	if err != nil {
+		return fmt.Errorf("Could not create file. %s", err)
+	}
+	defer resultFile.Close()
+
+	tplPath := path.Join("templates", "fabric", tplName)
+	tmpl, err := template.ParseFiles(tplPath)
+	if err != nil {
+		return fmt.Errorf("Could not load template. %s", err)
+	}
+	tmpl.Execute(resultFile, chanOrgs)
+	return nil
 }
 
 func startGame(players []*TFCClient, chanCfg, chanName string) error {
@@ -347,14 +389,4 @@ func invokeChaincode(sdk *fabsdk.FabricSDK, org, chanName string) error {
 	fmt.Println(gBoard.GetPositions())
 
 	return nil
-}
-
-func makeSDK(clientCfg string) (*fabsdk.FabricSDK, error) {
-
-	configOpt := config.FromFile(clientCfg)
-	sdk, err := fabsdk.New(configOpt)
-	if err != nil {
-		return nil, fmt.Errorf("Failed to create new SDK: %s", err)
-	}
-	return sdk, nil
 }

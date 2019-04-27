@@ -32,28 +32,28 @@ fi
 
 echo
 echo "#################################################################"
-echo "#######    Generating anchor peer update for Player1  ##########"
+echo "#######    Generating anchor peer update for {{index . 0}}  ##########"
 echo "#################################################################"
 set -x
-configtxgen -profile TFCChannel -outputAnchorPeersUpdate ${FABRIC_CFG_PATH}/Player1anchors.tx -channelID $CHANNEL_NAME -asOrg Player1
+configtxgen -profile TFCChannel -outputAnchorPeersUpdate ${FABRIC_CFG_PATH}/{{index . 0}}anchors.tx -channelID $CHANNEL_NAME -asOrg {{index . 0}}
 res=$?
 set +x
 if [ $res -ne 0 ]; then
-  echo "Failed to generate anchor peer update for Player1..."
+  echo "Failed to generate anchor peer update for {{index . 0}}..."
   exit 1
 fi
 
 echo
 echo "#################################################################"
-echo "#######    Generating anchor peer update for Player2   ##########"
+echo "#######    Generating anchor peer update for {{index . 1}}   ##########"
 echo "#################################################################"
 set -x
 configtxgen -profile TFCChannel -outputAnchorPeersUpdate \
-  ${FABRIC_CFG_PATH}/Player2anchors.tx -channelID $CHANNEL_NAME -asOrg Player2
+  ${FABRIC_CFG_PATH}/{{index . 1}}anchors.tx -channelID $CHANNEL_NAME -asOrg {{index . 1}} 
 res=$?
 set +x
 if [ $res -ne 0 ]; then
-  echo "Failed to generate anchor peer update for Player2MSP..."
+  echo "Failed to generate anchor peer update for {{index . 1}}MSP..."
   exit 1
 fi
 echo
@@ -61,15 +61,15 @@ echo
 
 echo
 echo "#################################################################"
-echo "#######    Generating anchor peer update for Player3   ##########"
+echo "#######    Generating anchor peer update for {{index . 2}}   ##########"
 echo "#################################################################"
 set -x
 configtxgen -profile TFCChannel -outputAnchorPeersUpdate \
-  ${FABRIC_CFG_PATH}/Player3anchors.tx -channelID $CHANNEL_NAME -asOrg Player3
+  ${FABRIC_CFG_PATH}/{{index . 2}}anchors.tx -channelID $CHANNEL_NAME -asOrg {{index . 2}} 
 res=$?
 set +x
 if [ $res -ne 0 ]; then
-  echo "Failed to generate anchor peer update for Player3MSP..."
+  echo "Failed to generate anchor peer update for {{index . 2}}MSP..."
   exit 1
 fi
 echo

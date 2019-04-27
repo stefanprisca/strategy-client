@@ -7,7 +7,7 @@
 version: 0.0.0
 
 client:
-  organization: player2
+  organization: {{index . 0}}
 
   logging:
     level: info
@@ -20,13 +20,13 @@ client:
   credentialStore:
     # [Optional]. Used by user store. Not needed if all credentials are embedded in configuration
     # and enrollments are performed elswhere.
-    path: "/tmp/state-store2"
+    path: "/tmp/state-store"
 
     # [Optional]. Specific to the CryptoSuite implementation used by GO SDK. Software-based implementations
     # requiring a key store. PKCS#11 based implementations does not.
     cryptoStore:
       # Specific to the underlying KeyValueStore that backs the crypto key store.
-      path: /tmp/msp2
+      path: /tmp/msp
 
   # [Optional] BCCSP config for the client. Used by GO SDK.
   BCCSP:
@@ -45,9 +45,9 @@ client:
     # [Optional]. Client key and cert for TLS handshake with peers and orderers
     client:
       key:
-        path: ${SCFIXTURES}/tfc/crypto-config/peerOrganizations/player2.tfc.com/users/User1@player2.tfc.com/tls/client.key
+        path: ${SCFIXTURES}/tfc/crypto-config/peerOrganizations/{{index . 0}}.tfc.com/users/User1@{{index . 0}}.tfc.com/tls/client.key
       cert:
-        path: ${SCFIXTURES}/tfc/crypto-config/peerOrganizations/player2.tfc.com/users/User1@player2.tfc.com/tls/client.crt
+        path: ${SCFIXTURES}/tfc/crypto-config/peerOrganizations/{{index . 0}}.tfc.com/users/User1@{{index . 0}}.tfc.com/tls/client.crt
 
 #
 # list of participating organizations in this network
@@ -281,7 +281,7 @@ channels:
 
     # [Optional]. list of peers from participating orgs
     peers:
-      peer0.player1.tfc.com:
+      peer0.{{index . 0}}.tfc.com:
         # [Optional]. will this peer be sent transaction proposals for endorsement? The peer must
         # have the chaincode installed. The app can also use this property to decide which peers
         # to send the chaincode install request. Default: true
@@ -301,7 +301,7 @@ channels:
         # Default: true
         eventSource: true
 
-      peer0.player2.tfc.com:
+      peer0.{{index . 1}}.tfc.com:
         # [Optional]. will this peer be sent transaction proposals for endorsement? The peer must
         # have the chaincode installed. The app can also use this property to decide which peers
         # to send the chaincode install request. Default: true
@@ -321,7 +321,7 @@ channels:
         # Default: true
         eventSource: true
 
-      peer0.player3.tfc.com:
+      peer0.{{index . 2}}.tfc.com:
         # [Optional]. will this peer be sent transaction proposals for endorsement? The peer must
         # have the chaincode installed. The app can also use this property to decide which peers
         # to send the chaincode install request. Default: true
