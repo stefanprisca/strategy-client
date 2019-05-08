@@ -24,12 +24,16 @@ import (
 	"testing"
 	"text/template"
 
+	pPrint "github.com/stefanprisca/strategy-code/prettyprint"
+	"github.com/stefanprisca/strategy-code/tfc"
+
 	"github.com/golang/protobuf/proto"
 
 	//mspclient "github.com/hyperledger/fabric-sdk-go/pkg/client/msp"
 
 	packager "github.com/hyperledger/fabric-sdk-go/pkg/fab/ccpackager/gopackager"
-	tttPf "github.com/stefanprisca/strategy-protobufs/tictactoe"
+	tfcPb "github.com/stefanprisca/strategy-protobufs/tfc"
+	tttPb "github.com/stefanprisca/strategy-protobufs/tictactoe"
 
 	"github.com/stretchr/testify/require"
 
@@ -50,6 +54,7 @@ import (
 var (
 	scfixturesPath = path.Join(os.Getenv("SCFIXTURES"), "tfc")
 	gopath         = os.Getenv("GOPATH")
+	ccPath         = "github.com/stefanprisca/strategy-code/cmd/tfc"
 )
 
 type ccDescriptor struct {
@@ -67,7 +72,7 @@ type ccDescriptor struct {
 */
 func TestE2E(t *testing.T) {
 
-	gameName := "blubla22132p"
+	gameName := "tfc5"
 	chanOrgs := []string{Player1, Player2, Player3}
 
 	cfgPath, err := generateChannelArtifacts(gameName, chanOrgs)
@@ -80,7 +85,7 @@ func TestE2E(t *testing.T) {
 	err = startGame(players, cfgPath, gameName)
 	require.NoError(t, err)
 
-	err = invokeChaincode(players[0], gameName)
+	err = invokeChaincodeTFC(players[0], gameName)
 	require.NoError(t, err)
 }
 
@@ -196,7 +201,6 @@ func startGame(players []*TFCClient, chanCfg, chanName string) error {
 		}
 	}
 
-	ccPath := "github.com/stefanprisca/strategy-code/tictactoe"
 	ccPkg, err := createCC(ccPath)
 	if err != nil {
 		return fmt.Errorf("could not create cc package: %s", err)
@@ -344,11 +348,11 @@ func deployChaincode(players []*TFCClient, ccReq resmgmt.InstallCCRequest,
 	return err
 }
 
-func invokeChaincode(player *TFCClient, chanName string) error {
+func invokeChaincodeTFC(player *TFCClient, chanName string) error {
 
 	// Org resource management client
 	orgResMgmt := player.ResMgmt
-
+	log.Printf("Invoking game chaincode for channel %s", chanName)
 	ccResp, err := orgResMgmt.QueryInstantiatedChaincodes(chanName)
 	if err != nil {
 		return fmt.Errorf("could not get chaincodes: %s", err)
@@ -367,8 +371,66 @@ func invokeChaincode(player *TFCClient, chanName string) error {
 
 	log.Printf("Connected client for %s\n", player.OrgID)
 
-	mvPayload := &tttPf.MoveTrxPayload{Mark: tttPf.Mark_X, Position: 3}
-	trxArgs := &tttPf.TrxArgs{Type: tttPf.TrxType_MOVE, MovePayload: mvPayload}
+	trxBytes, err := tfc.NewArgsBuilder().
+		WithJoinArgs(tfcPb.Player_RED).
+		Build()
+
+	if err != nil {
+		return fmt.Errorf("could not marshal trx args: %s", err)
+	}
+	fmt.Println(trxBytes)
+
+	response, err := client.Execute(
+		channel.Request{
+			ChaincodeID: chanName,
+			Fcn:         "move",
+			Args:        trxBytes},
+		channel.WithRetry(retry.DefaultChannelOpts))
+
+	if err != nil {
+		return fmt.Errorf("Failed to invoke cc: %s", err)
+	}
+	fmt.Println("Issued chaincode invoke.")
+
+	gdataBytes := response.Payload
+	gdata := &tfcPb.GameData{}
+	err = proto.Unmarshal(gdataBytes, gdata)
+	if err != nil {
+		return fmt.Errorf("could not unmarshal response from Tictactoe: %s", err)
+	}
+
+	canvas := pPrint.NewTFCBoardCanvas().
+		PrettyPrintTfcBoard(*gdata.GetBoard())
+	fmt.Println(canvas)
+
+	return nil
+}
+
+func invokeChaincodeTTT(player *TFCClient, chanName string) error {
+
+	// Org resource management client
+	orgResMgmt := player.ResMgmt
+	log.Printf("Invoking game chaincode for channel %s", chanName)
+	ccResp, err := orgResMgmt.QueryInstantiatedChaincodes(chanName)
+	if err != nil {
+		return fmt.Errorf("could not get chaincodes: %s", err)
+	}
+	log.Println("Got the chaincodes installed", ccResp.Chaincodes)
+
+	clientChannelContext := player.SDK.ChannelContext(chanName,
+		fabsdk.WithUser(User),
+		fabsdk.WithOrg(player.OrgID))
+
+	// Channel client is used to query and execute transactions (Org1 is default org)
+	client, err := channel.New(clientChannelContext)
+	if err != nil {
+		return fmt.Errorf("could not get channel client: %s", err)
+	}
+
+	log.Printf("Connected client for %s\n", player.OrgID)
+
+	mvPayload := &tttPb.MoveTrxPayload{Mark: tttPb.Mark_X, Position: 3}
+	trxArgs := &tttPb.TrxArgs{Type: tttPb.TrxType_MOVE, MovePayload: mvPayload}
 
 	trxBytes, err := proto.Marshal(trxArgs)
 	if err != nil {
@@ -379,7 +441,7 @@ func invokeChaincode(player *TFCClient, chanName string) error {
 	response, err := client.Execute(
 		channel.Request{
 			ChaincodeID: chanName,
-			Fcn:         "move",
+			Fcn:         "dummy",
 			Args:        [][]byte{trxBytes}},
 		channel.WithRetry(retry.DefaultChannelOpts))
 
@@ -389,7 +451,7 @@ func invokeChaincode(player *TFCClient, chanName string) error {
 	fmt.Println("Issued chaincode invoke.")
 
 	gBoardBytes := response.Payload
-	gBoard := &tttPf.TttContract{}
+	gBoard := &tttPb.TttContract{}
 	err = proto.Unmarshal(gBoardBytes, gBoard)
 	if err != nil {
 		return fmt.Errorf("could not unmarshal response from Tictactoe: %s", err)
