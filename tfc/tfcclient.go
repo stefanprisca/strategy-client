@@ -2,6 +2,7 @@ package tfc
 
 import (
 	"fmt"
+	"os"
 	"path"
 	"strings"
 
@@ -9,6 +10,7 @@ import (
 	"github.com/hyperledger/fabric-sdk-go/pkg/common/providers/context"
 	"github.com/hyperledger/fabric-sdk-go/pkg/common/providers/msp"
 	"github.com/hyperledger/fabric-sdk-go/pkg/core/config"
+	"github.com/hyperledger/fabric-sdk-go/pkg/fab/resource"
 	"github.com/hyperledger/fabric-sdk-go/pkg/fabsdk"
 
 	mspclient "github.com/hyperledger/fabric-sdk-go/pkg/client/msp"
@@ -37,6 +39,18 @@ const (
 	User            = "User1"
 	OrdererEndpoint = "orderer.tfc.com"
 )
+
+var (
+	scfixturesPath = path.Join(os.Getenv("SCFIXTURES"), "tfc")
+	gopath         = os.Getenv("GOPATH")
+)
+
+type ccDescriptor struct {
+	ccID      string
+	ccPath    string
+	ccVersion string
+	ccPackage *resource.CCPackage
+}
 
 func NewTFCClient(fabCfgPath, clientCfgPath, org string) (*TFCClient, error) {
 

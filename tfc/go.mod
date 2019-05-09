@@ -6,6 +6,7 @@ require (
 	github.com/cloudflare/cfssl v0.0.0-20190409034051-768cd563887f // indirect
 	github.com/go-kit/kit v0.8.0 // indirect
 	github.com/go-logfmt/logfmt v0.4.0 // indirect
+	github.com/gogo/protobuf v1.2.1
 	github.com/golang/mock v1.2.0 // indirect
 	github.com/golang/protobuf v1.3.1
 	github.com/google/certificate-transparency-go v1.0.21 // indirect
