@@ -203,9 +203,9 @@ Profiles:
         Consortiums:
             TFCConsortium:
                 Organizations:
-                    - *{{index . 0}}
-                    - *{{index . 1}}
-                    - *{{index . 2}}
+                    {{range .}}
+                        - *{{.}}
+                    {{end}}
 
     TFCDevModeKafka:
         <<: *ChannelDefaults
@@ -229,18 +229,18 @@ Profiles:
         Consortiums:
             TFCConsortium:
                 Organizations:
-                    - *{{index . 0}}
-                    - *{{index . 1}}
-                    - *{{index . 2}}
+                    {{range .}}
+                    - *{{.}}
+                    {{end}}
 
     TFCChannel:
         Consortium: TFCConsortium
         Application:
             <<: *ApplicationDefaults
             Organizations:
-                - *{{index . 0}}
-                - *{{index . 1}}
-                - *{{index . 2}}
+                    {{range .}}
+                    - *{{.}}
+                    {{end}}
 
             Capabilities:
                 <<: *ApplicationCapabilities

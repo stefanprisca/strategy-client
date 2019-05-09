@@ -6,6 +6,7 @@ import (
 	"path"
 	"strings"
 
+	"github.com/hyperledger/fabric-sdk-go/pkg/client/channel"
 	"github.com/hyperledger/fabric-sdk-go/pkg/client/resmgmt"
 	"github.com/hyperledger/fabric-sdk-go/pkg/common/providers/context"
 	"github.com/hyperledger/fabric-sdk-go/pkg/common/providers/msp"
@@ -26,6 +27,7 @@ type TFCClient struct {
 	AnchorPeerConfigFile string
 	Endorser             string
 	SDK                  *fabsdk.FabricSDK
+	ChannelClient        *channel.Client
 }
 
 const (
@@ -52,7 +54,7 @@ type ccDescriptor struct {
 	ccPackage *resource.CCPackage
 }
 
-func NewTFCClient(fabCfgPath, clientCfgPath, org string) (*TFCClient, error) {
+func NewTFCClient(fabCfgPath, clientCfgPath, org, gameName string) (*TFCClient, error) {
 
 	configOpt := config.FromFile(clientCfgPath)
 	sdk, err := fabsdk.New(configOpt)
@@ -84,6 +86,7 @@ func NewTFCClient(fabCfgPath, clientCfgPath, org string) (*TFCClient, error) {
 		AnchorPeerConfigFile: path.Join(fabCfgPath, org+"anchors.tx"),
 		Endorser:             org + "MSP.peer",
 		SDK:                  sdk,
+		ChannelClient:        nil,
 	}
 
 	return tfcClient, nil

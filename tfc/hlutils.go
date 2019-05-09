@@ -48,6 +48,7 @@ func generateChannelArtifacts(channelName string, chanOrgs []string) (string, er
 
 	os.Setenv("FABRIC_CFG_PATH", cfgPath)
 	os.Setenv("CHANNEL_NAME", channelName)
+
 	fmt.Println(cfgPath)
 
 	changen := exec.Command("/bin/sh", genScriptPath, channelName)
@@ -60,7 +61,7 @@ func generateChannelArtifacts(channelName string, chanOrgs []string) (string, er
 	return cfgPath, nil
 }
 
-func generatePlayers(cfgPath string, chanOrgs []string) ([]*TFCClient, error) {
+func generatePlayers(cfgPath string, chanOrgs []string, gameName string) ([]*TFCClient, error) {
 
 	players := []*TFCClient{}
 	lowCapOrgs := []string{}
@@ -77,7 +78,7 @@ func generatePlayers(cfgPath string, chanOrgs []string) ([]*TFCClient, error) {
 			return nil, fmt.Errorf("could not create client cfg: %s", err)
 		}
 
-		c, err := NewTFCClient(cfgPath, clientCfg, org)
+		c, err := NewTFCClient(cfgPath, clientCfg, org, gameName)
 		if err != nil {
 			return nil, fmt.Errorf("could not create new client: %s", err)
 		}
@@ -131,6 +132,11 @@ func startGame(players []*TFCClient, chanCfg, ccPath, chanName string) error {
 		if err != nil {
 			return fmt.Errorf("could not update anchor peers: %s", err)
 		}
+
+		err = updateChannelClient(p, chanName)
+		if err != nil {
+			return fmt.Errorf("could not update anchor peers: %s", err)
+		}
 	}
 
 	ccPkg, err := createCC(ccPath)
@@ -145,8 +151,12 @@ func startGame(players []*TFCClient, chanCfg, ccPath, chanName string) error {
 		Version: "0.1.0",
 		Package: ccPkg}
 
-	ccPolicyString := fmt.Sprintf("OR('%s', '%s', '%s')",
-		players[0].Endorser, players[1].Endorser, players[2].Endorser)
+	endorsers := []string{}
+	for _, p := range players {
+		endorsers = append(endorsers, fmt.Sprintf("'%s'", p.Endorser))
+	}
+
+	ccPolicyString := fmt.Sprintf("OR(%s)", strings.Join(endorsers, ", "))
 
 	log.Printf("Created policy string: %s", ccPolicyString)
 
@@ -244,6 +254,23 @@ func createCC(ccPath string) (*resource.CCPackage, error) {
 	return ccPkg, nil
 }
 
+func updateChannelClient(p *TFCClient, gameName string) error {
+
+	clientChannelContext := p.SDK.ChannelContext(gameName,
+		fabsdk.WithUser(User),
+		fabsdk.WithOrg(p.OrgID))
+
+	// Channel client is used to query and execute transactions (Org1 is default org)
+	chanClient, err := channel.New(clientChannelContext)
+	if err != nil {
+		return fmt.Errorf("could not get channel client: %s", err)
+	}
+
+	p.ChannelClient = chanClient
+
+	return nil
+}
+
 func deployChaincode(players []*TFCClient, ccReq resmgmt.InstallCCRequest,
 	ccPolicy *common.SignaturePolicyEnvelope, chanName string) error {
 
@@ -283,32 +310,16 @@ func deployChaincode(players []*TFCClient, ccReq resmgmt.InstallCCRequest,
 func invokeGameChaincode(player *TFCClient, chanName string, protoArgs []byte) (channel.Response, error) {
 
 	// Org resource management client
-	orgResMgmt := player.ResMgmt
-	log.Printf("Invoking game chaincode for channel %s", chanName)
-	ccResp, err := orgResMgmt.QueryInstantiatedChaincodes(chanName)
-	if err != nil {
-		return channel.Response{}, fmt.Errorf("could not get chaincodes: %s", err)
-	}
-	log.Println("Got the chaincodes installed", ccResp.Chaincodes)
+	// orgResMgmt := player.ResMgmt
+	log.Printf("Invoking game chaincode for client %v on channel %s", player, chanName)
+	// ccResp, err := orgResMgmt.QueryInstantiatedChaincodes(chanName)
+	// if err != nil {
+	// 	return channel.Response{}, fmt.Errorf("could not get chaincodes: %s", err)
+	// }
+	// log.Println("Got the chaincodes installed", ccResp.Chaincodes)
 
-	clientChannelContext := player.SDK.ChannelContext(chanName,
-		fabsdk.WithUser(User),
-		fabsdk.WithOrg(player.OrgID))
-
-	// Channel client is used to query and execute transactions (Org1 is default org)
-	client, err := channel.New(clientChannelContext)
-	if err != nil {
-		return channel.Response{}, fmt.Errorf("could not get channel client: %s", err)
-	}
-
-	log.Printf("Connected client for %s\n", player.OrgID)
-
-	if err != nil {
-		return channel.Response{}, fmt.Errorf("could not marshal trx args: %s", err)
-	}
-	fmt.Println(protoArgs)
-
-	response, err := client.Execute(
+	// log.Printf("Connected client for %s\n", player.OrgID)
+	response, err := player.ChannelClient.Execute(
 		channel.Request{
 			ChaincodeID: chanName,
 			Fcn:         "move",
@@ -318,8 +329,6 @@ func invokeGameChaincode(player *TFCClient, chanName string, protoArgs []byte) (
 	if err != nil {
 		return channel.Response{}, fmt.Errorf("Failed to invoke cc: %s", err)
 	}
-	fmt.Println("Issued chaincode invoke.")
-
 	// gdataBytes := response.Payload
 	// gdata := &tfcPb.GameData{}
 	// err = proto.Unmarshal(gdataBytes, gdata)

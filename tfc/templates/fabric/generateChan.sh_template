@@ -30,46 +30,19 @@ if [ $res -ne 0 ]; then
   exit 1
 fi
 
-echo
-echo "#################################################################"
-echo "#######    Generating anchor peer update for {{index . 0}}  ##########"
-echo "#################################################################"
-set -x
-configtxgen -profile TFCChannel -outputAnchorPeersUpdate ${FABRIC_CFG_PATH}/{{index . 0}}anchors.tx -channelID $CHANNEL_NAME -asOrg {{index . 0}}
-res=$?
-set +x
-if [ $res -ne 0 ]; then
-  echo "Failed to generate anchor peer update for {{index . 0}}..."
-  exit 1
-fi
+{{range . }}
 
-echo
-echo "#################################################################"
-echo "#######    Generating anchor peer update for {{index . 1}}   ##########"
-echo "#################################################################"
-set -x
-configtxgen -profile TFCChannel -outputAnchorPeersUpdate \
-  ${FABRIC_CFG_PATH}/{{index . 1}}anchors.tx -channelID $CHANNEL_NAME -asOrg {{index . 1}} 
-res=$?
-set +x
-if [ $res -ne 0 ]; then
-  echo "Failed to generate anchor peer update for {{index . 1}}MSP..."
-  exit 1
-fi
-echo
+  echo
+  echo "#################################################################"
+  echo "#######    Generating anchor peer update for {{.}}  ##########"
+  echo "#################################################################"
+  set -x
+  configtxgen -profile TFCChannel -outputAnchorPeersUpdate ${FABRIC_CFG_PATH}/{{.}}anchors.tx -channelID $CHANNEL_NAME -asOrg {{.}}
+  res=$?
+  set +x
+  if [ $res -ne 0 ]; then
+    echo "Failed to generate anchor peer update for {{.}} ..."
+    exit 1
+  fi
 
-
-echo
-echo "#################################################################"
-echo "#######    Generating anchor peer update for {{index . 2}}   ##########"
-echo "#################################################################"
-set -x
-configtxgen -profile TFCChannel -outputAnchorPeersUpdate \
-  ${FABRIC_CFG_PATH}/{{index . 2}}anchors.tx -channelID $CHANNEL_NAME -asOrg {{index . 2}} 
-res=$?
-set +x
-if [ $res -ne 0 ]; then
-  echo "Failed to generate anchor peer update for {{index . 2}}MSP..."
-  exit 1
-fi
-echo
+{{end}}
