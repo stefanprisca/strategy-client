@@ -15,6 +15,7 @@ package tfc
 
 import (
 	"log"
+	"strconv"
 	"testing"
 	"time"
 
@@ -60,30 +61,42 @@ func scriptTTT1(p1, p2 *TFCClient) []scriptStep {
 }
 
 func TestE2E(t *testing.T) {
+	res := execTTTGame(t, "foo2", []string{Player1, Player2})
+	log.Println(res)
+}
+func TestGoroutines(t *testing.T) {
 	respChan := make(chan (perfResult))
-	go execTTTGame(t, "1foo1", respChan, []string{Player1, Player2})
-	go execTTTGame(t, "1faa2", respChan, []string{Player2, Player3})
-	go execTTTGame(t, "1fop3", respChan, []string{Player5, Player4})
-	go execTTTGame(t, "1bop4", respChan, []string{Player3, Player1})
+	runName := "testbar"
+	nOfRoutines := 4
+
+	playerPairs := [][]string{
+		{Player1, Player2},
+		{Player2, Player4},
+		{Player3, Player4},
+		{Player5, Player1},
+	}
+
+	for i := 0; i < nOfRoutines; i++ {
+		go execTTTGameAsync(t, runName+strconv.Itoa(i+1), respChan, playerPairs[i])
+	}
 
 	perfResultMeans := []float64{}
-	for x := range respChan {
-		rts := x.runtimes
+	for i := 0; i < nOfRoutines; i++ {
+		resp := <-respChan
+		rts := resp.runtimes
 		mean := stat.Mean(rts, nil)
 		perfResultMeans = append(perfResultMeans, mean)
-
-		if len(perfResultMeans) == 3 {
-			break
-		}
 	}
 
 	log.Println(perfResultMeans)
 }
 
-func execTTTGame(t *testing.T, name string, resultChan chan (perfResult), chanOrgs []string) {
+func execTTTGameAsync(t *testing.T, gameName string, respChan chan (perfResult), chanOrgs []string) {
+	res := execTTTGame(t, gameName, chanOrgs)
+	respChan <- res
+}
 
-	gameName := name
-
+func execTTTGame(t *testing.T, gameName string, chanOrgs []string) perfResult {
 	cfgPath, err := generateChannelArtifacts(gameName, chanOrgs)
 	require.NoError(t, err)
 
@@ -100,7 +113,7 @@ func execTTTGame(t *testing.T, name string, resultChan chan (perfResult), chanOr
 	require.NoError(t, err)
 
 	log.Printf("Executed test with average runtime %v", stat.Mean(perfResult.runtimes, nil))
-	resultChan <- perfResult
+	return perfResult
 }
 
 func runScript(script []scriptStep, chanName string) ([]channel.Response, perfResult, error) {
