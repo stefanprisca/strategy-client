@@ -44,6 +44,7 @@ organizations:
     cryptoPath:  peerOrganizations/player1.tfc.com/users/{username}@player1.tfc.com/msp
     peers:
       - peer0.player1.tfc.com
+      - peer1.player1.tfc.com
     certificateAuthorities:
       - ca.player1.tfc.com
 
@@ -52,6 +53,7 @@ organizations:
     cryptoPath:  peerOrganizations/player2.tfc.com/users/{username}@player2.tfc.com/msp
     peers:
       - peer0.player2.tfc.com
+      - peer1.player2.tfc.com
     certificateAuthorities:
       - ca.player2.tfc.com
   
@@ -60,6 +62,7 @@ organizations:
     cryptoPath:  peerOrganizations/player3.tfc.com/users/{username}@player3.tfc.com/msp
     peers:
       - peer0.player3.tfc.com
+      - peer1.player3.tfc.com
     certificateAuthorities:
       - ca.player3.tfc.com
 
@@ -68,6 +71,7 @@ organizations:
     cryptoPath:  peerOrganizations/player4.tfc.com/users/{username}@player4.tfc.com/msp
     peers:
       - peer0.player4.tfc.com
+      - peer1.player4.tfc.com
     certificateAuthorities:
       - ca.player4.tfc.com
 
@@ -76,6 +80,7 @@ organizations:
     cryptoPath:  peerOrganizations/player5.tfc.com/users/{username}@player5.tfc.com/msp
     peers:
       - peer0.player5.tfc.com
+      - peer1.player5.tfc.com
     certificateAuthorities:
       - ca.player5.tfc.com
 
@@ -114,10 +119,37 @@ peers:
     tlsCACerts:
       path: ${SCFIXTURES}/tfc/crypto-config/peerOrganizations/player1.tfc.com/tlsca/tlsca.player1.tfc.com-cert.pem
 
+  peer1.player1.tfc.com:
+    url: peer1.player1.tfc.com:7151
+
+    grpcOptions:
+      ssl-target-name-override: peer1.player1.tfc.com
+      keep-alive-time: 0s
+      keep-alive-timeout: 20s
+      keep-alive-permit: false
+      fail-fast: false
+      allow-insecure: false
+
+    tlsCACerts:
+      path: ${SCFIXTURES}/tfc/crypto-config/peerOrganizations/player1.tfc.com/tlsca/tlsca.player1.tfc.com-cert.pem
+
   peer0.player2.tfc.com:
     url: peer0.player2.tfc.com:8051
     grpcOptions:
       ssl-target-name-override: peer0.player2.tfc.com
+      keep-alive-time: 0s
+      keep-alive-timeout: 20s
+      keep-alive-permit: false
+      fail-fast: false
+      allow-insecure: false
+
+    tlsCACerts:
+      path: ${SCFIXTURES}/tfc/crypto-config/peerOrganizations/player2.tfc.com/tlsca/tlsca.player2.tfc.com-cert.pem
+
+  peer1.player2.tfc.com:
+    url: peer1.player2.tfc.com:8151
+    grpcOptions:
+      ssl-target-name-override: peer1.player2.tfc.com
       keep-alive-time: 0s
       keep-alive-timeout: 20s
       keep-alive-permit: false
@@ -140,6 +172,19 @@ peers:
     tlsCACerts:
       path: ${SCFIXTURES}/tfc/crypto-config/peerOrganizations/player3.tfc.com/tlsca/tlsca.player3.tfc.com-cert.pem
 
+  peer1.player3.tfc.com:
+    url: peer1.player3.tfc.com:9151
+    grpcOptions:
+      ssl-target-name-override: peer1.player3.tfc.com
+      keep-alive-time: 0s
+      keep-alive-timeout: 20s
+      keep-alive-permit: false
+      fail-fast: false
+      allow-insecure: false
+
+    tlsCACerts:
+      path: ${SCFIXTURES}/tfc/crypto-config/peerOrganizations/player3.tfc.com/tlsca/tlsca.player3.tfc.com-cert.pem
+
   peer0.player4.tfc.com:
     url: peer0.player4.tfc.com:10051
     grpcOptions:
@@ -153,10 +198,36 @@ peers:
     tlsCACerts:
       path: ${SCFIXTURES}/tfc/crypto-config/peerOrganizations/player4.tfc.com/tlsca/tlsca.player4.tfc.com-cert.pem
 
+  peer1.player4.tfc.com:
+    url: peer1.player4.tfc.com:10151
+    grpcOptions:
+      ssl-target-name-override: peer1.player4.tfc.com
+      keep-alive-time: 0s
+      keep-alive-timeout: 20s
+      keep-alive-permit: false
+      fail-fast: false
+      allow-insecure: false
+
+    tlsCACerts:
+      path: ${SCFIXTURES}/tfc/crypto-config/peerOrganizations/player4.tfc.com/tlsca/tlsca.player4.tfc.com-cert.pem
+
   peer0.player5.tfc.com:
     url: peer0.player5.tfc.com:11051
     grpcOptions:
       ssl-target-name-override: peer0.player5.tfc.com
+      keep-alive-time: 0s
+      keep-alive-timeout: 20s
+      keep-alive-permit: false
+      fail-fast: false
+      allow-insecure: false
+
+    tlsCACerts:
+      path: ${SCFIXTURES}/tfc/crypto-config/peerOrganizations/player5.tfc.com/tlsca/tlsca.player5.tfc.com-cert.pem
+
+  peer1.player5.tfc.com:
+    url: peer1.player5.tfc.com:11151
+    grpcOptions:
+      ssl-target-name-override: peer1.player5.tfc.com
       keep-alive-time: 0s
       keep-alive-timeout: 20s
       keep-alive-permit: false
@@ -192,26 +263,52 @@ entityMatchers:
       urlSubstitutionExp: localhost:7051
       sslTargetOverrideUrlSubstitutionExp: peer0.player1.tfc.com
       mappedHost: peer0.player1.tfc.com
+    
+    - pattern: (\w*)peer1.player1.tfc.com(\w*)
+      urlSubstitutionExp: localhost:7151
+      sslTargetOverrideUrlSubstitutionExp: peer1.player1.tfc.com
+      mappedHost: peer1.player1.tfc.com
 
     - pattern: (\w*)peer0.player2.tfc.com(\w*)
       urlSubstitutionExp: localhost:8051
       sslTargetOverrideUrlSubstitutionExp: peer0.player2.tfc.com
       mappedHost: peer0.player2.tfc.com
     
+    - pattern: (\w*)peer1.player2.tfc.com(\w*)
+      urlSubstitutionExp: localhost:8151
+      sslTargetOverrideUrlSubstitutionExp: peer1.player2.tfc.com
+      mappedHost: peer1.player2.tfc.com
+    
     - pattern: (\w*)peer0.player3.tfc.com(\w*)
       urlSubstitutionExp: localhost:9051
       sslTargetOverrideUrlSubstitutionExp: peer0.player3.tfc.com
       mappedHost: peer0.player3.tfc.com
+
+    - pattern: (\w*)peer1.player3.tfc.com(\w*)
+      urlSubstitutionExp: localhost:9151
+      sslTargetOverrideUrlSubstitutionExp: peer1.player3.tfc.com
+      mappedHost: peer1.player3.tfc.com
 
     - pattern: (\w*)peer0.player4.tfc.com(\w*)
       urlSubstitutionExp: localhost:10051
       sslTargetOverrideUrlSubstitutionExp: peer0.player4.tfc.com
       mappedHost: peer0.player4.tfc.com
 
+    - pattern: (\w*)peer1.player4.tfc.com(\w*)
+      urlSubstitutionExp: localhost:10151
+      sslTargetOverrideUrlSubstitutionExp: peer1.player4.tfc.com
+      mappedHost: peer1.player4.tfc.com
+
     - pattern: (\w*)peer0.player5.tfc.com(\w*)
       urlSubstitutionExp: localhost:11051
       sslTargetOverrideUrlSubstitutionExp: peer0.player5.tfc.com
       mappedHost: peer0.player5.tfc.com
+
+    - pattern: (\w*)peer1.player5.tfc.com(\w*)
+      urlSubstitutionExp: localhost:11151
+      sslTargetOverrideUrlSubstitutionExp: peer1.player5.tfc.com
+      mappedHost: peer1.player5.tfc.com
+
   orderer:
     - pattern: (\w*)orderer.tfc.com(\w*)
       urlSubstitutionExp: localhost:7050
@@ -226,6 +323,11 @@ channels:
     peers:
     {{range .Orgs}}
       peer0.{{.}}.tfc.com:
+        endorsingPeer: true
+        chaincodeQuery: true
+        ledgerQuery: true
+        eventSource: true
+      peer1.{{.}}.tfc.com:
         endorsingPeer: true
         chaincodeQuery: true
         ledgerQuery: true

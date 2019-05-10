@@ -65,7 +65,7 @@ func scriptTTT1(p1, p2 *TFCClient) []scriptStep {
 }
 
 func TestE2E(t *testing.T) {
-	runName := "te2e3"
+	runName := "te2e123"
 	res, err := execTTTGame(runName, []string{Player1, Player2})
 	require.NoError(t, err)
 	log.Println(res)
@@ -74,13 +74,13 @@ func TestE2E(t *testing.T) {
 }
 
 func TestGoroutinesStatic(t *testing.T) {
-	testWithRoutines(t, 4, "testgr8")
+	testWithRoutines(t, 4, "testfafa13")
 }
 
 func TestGoroutinesIncremental(t *testing.T) {
-	testName := "testgrinc4"
+	testName := "testgrinc"
 
-	for nOfRoutines := 4; nOfRoutines < 25; nOfRoutines *= 2 {
+	for nOfRoutines := 1; nOfRoutines < 10; nOfRoutines *= 2 {
 		runName := testName + strconv.Itoa(nOfRoutines)
 		testWithRoutines(t, nOfRoutines, runName)
 	}
@@ -92,18 +92,26 @@ func testWithRoutines(t *testing.T, nOfRoutines int, runName string) {
 
 	playerPairs := [][]string{
 		{Player1, Player2},
-		{Player5, Player2},
-		{Player5, Player4},
-		{Player3, Player4},
-		{Player5, Player1},
+		{Player3, Player5},
+		{Player4, Player1},
+		{Player2, Player3},
+		{Player1, Player4},
 	}
 
 	log.Printf(" ############# \n\t Starting goRoutine run *%s* with %v routines, and player set %v. \n ##############",
 		runName, nOfRoutines, playerPairs)
 
-	for i := 0; i < nOfRoutines; i++ {
-		ppI := i % len(playerPairs)
-		go execTTTGameAsync(runName+strconv.Itoa(i+1), respChan, playerPairs[ppI])
+	batchSize := 1
+	batchInterval, err := time.ParseDuration("10s")
+	require.NoError(t, err)
+
+	for i := 0; i < nOfRoutines; i += batchSize {
+		for j := i; j < i+batchSize; j++ {
+			ppI := j % len(playerPairs)
+			gameName := runName + strconv.Itoa(j+1)
+			go execTTTGameAsync(gameName, respChan, playerPairs[ppI])
+		}
+		time.Sleep(batchInterval)
 	}
 
 	perfResults := [][]runtime{}
@@ -206,7 +214,7 @@ func plotRuntimes(rts []runtime, name string) error {
 		xys[i].Y = r.value
 	}
 
-	err = plotutil.AddLinePoints(p, xys)
+	err = plotutil.AddScatters(p, xys)
 	if err != nil {
 		return err
 
