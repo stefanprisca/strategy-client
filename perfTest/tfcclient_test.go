@@ -14,7 +14,9 @@
 package tfc
 
 import (
+	"fmt"
 	"log"
+	"math/rand"
 	"strconv"
 	"testing"
 	"time"
@@ -74,11 +76,11 @@ func TestE2E(t *testing.T) {
 }
 
 func TestGoroutinesStatic(t *testing.T) {
-	testWithRoutines(t, 4, "testfafa13")
+	testWithRoutines(t, 4, "testfafa41")
 }
 
 func TestGoroutinesIncremental(t *testing.T) {
-	testName := "testgrinc"
+	testName := "testgrinc1"
 
 	for nOfRoutines := 1; nOfRoutines < 10; nOfRoutines *= 2 {
 		runName := testName + strconv.Itoa(nOfRoutines)
@@ -185,6 +187,10 @@ func runScript(script []scriptStep, chanName string) ([]channel.Response, []runt
 
 		rts[i] = runtime{timestamp: st.Unix(), value: rt}
 		responses[i] = r
+
+		ms := rand.Intn(1000) + 500
+		stepInterval, _ := time.ParseDuration(fmt.Sprintf("%vms", ms))
+		time.Sleep(stepInterval)
 		if err != nil {
 			return responses, rts, err
 		}
