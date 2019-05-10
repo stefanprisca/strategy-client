@@ -10,7 +10,7 @@ echo "##########################################################"
 # Note: For some unknown reason (at least for now) the block file can't be
 # named orderer.genesis.block or the orderer will fail to launch!
 set -x
-configtxgen -profile TFCDevModeKafka -channelID tfc-sys-channel -outputBlock ${FABRIC_CFG_PATH}/genesis.block
+configtxgen -profile TFCDevModeKafka -channelID tfc-sys-channel -outputBlock {{.FabricCfgPath}}/genesis.block
 res=$?
 set +x
 if [ $res -ne 0 ]; then
@@ -22,7 +22,7 @@ echo "#################################################################"
 echo "### Generating channel configuration transaction 'channel.tx' ###"
 echo "#################################################################"
 set -x
-configtxgen -profile TFCChannel -outputCreateChannelTx ${FABRIC_CFG_PATH}/${CHANNEL_NAME}.tx -channelID $CHANNEL_NAME
+configtxgen -profile TFCChannel -outputCreateChannelTx {{.FabricCfgPath}}/{{.ChannelName}}.tx -channelID {{.ChannelName}}
 res=$?
 set +x
 if [ $res -ne 0 ]; then
@@ -30,18 +30,18 @@ if [ $res -ne 0 ]; then
   exit 1
 fi
 
-{{range . }}
+{{range $i, $o := $.Orgs}}
 
   echo
   echo "#################################################################"
-  echo "#######    Generating anchor peer update for {{.}}  ##########"
+  echo "#######    Generating anchor peer update for {{$o}}  ##########"
   echo "#################################################################"
   set -x
-  configtxgen -profile TFCChannel -outputAnchorPeersUpdate ${FABRIC_CFG_PATH}/{{.}}anchors.tx -channelID $CHANNEL_NAME -asOrg {{.}}
+  configtxgen -profile TFCChannel -outputAnchorPeersUpdate {{$.FabricCfgPath}}/{{$o}}anchors.tx -channelID {{$.ChannelName}} -asOrg {{$o}}
   res=$?
   set +x
   if [ $res -ne 0 ]; then
-    echo "Failed to generate anchor peer update for {{.}} ..."
+    echo "Failed to generate anchor peer update for {{$o}} ..."
     exit 1
   fi
 

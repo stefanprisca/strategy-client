@@ -20,6 +20,12 @@ import (
 	"github.com/hyperledger/fabric-sdk-go/third_party/github.com/hyperledger/fabric/protos/common"
 )
 
+type genScriptData struct {
+	Orgs          []string
+	FabricCfgPath string
+	ChannelName   string
+}
+
 func generateChannelArtifacts(channelName string, chanOrgs []string) (string, error) {
 	/*
 		1) Fill out chan template
@@ -40,17 +46,18 @@ func generateChannelArtifacts(channelName string, chanOrgs []string) (string, er
 	}
 
 	genScriptPath := path.Join(cfgPath, "generateChan.sh")
-	err = executeTemplate(genScriptPath, "generateChan.sh_template", chanOrgs)
+	genScriptData := genScriptData{chanOrgs, cfgPath, channelName}
+	err = executeTemplate(genScriptPath, "generateChan.sh_template", genScriptData)
 	if err != nil {
 		return "", fmt.Errorf("could not generate channel cfg: %s", err)
 	}
 
-	os.Setenv("FABRIC_CFG_PATH", cfgPath)
-	os.Setenv("CHANNEL_NAME", channelName)
-
 	fmt.Println(cfgPath)
 
 	changen := exec.Command("/bin/sh", genScriptPath, channelName)
+
+	changen.Env = os.Environ()
+	changen.Env = append(changen.Env, "FABRIC_CFG_PATH="+cfgPath)
 	result, err := changen.CombinedOutput()
 	print(result)
 	if err != nil {

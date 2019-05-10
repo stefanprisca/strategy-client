@@ -238,13 +238,13 @@ channels:
         retryOpts:
           attempts: 4
           initialBackoff: 100ms
-          maxBackoff: 2s
+          maxBackoff: 5s
           backoffFactor: 2.0
 
       selection:
         SortingStrategy: PreferOrg
-        Balancer: RoundRobin
-        BlockHeightLagThreshold: 2
+        Balancer: Random
+        BlockHeightLagThreshold: 5
 
       queryChannelConfig:
         minResponses: 1
@@ -252,7 +252,7 @@ channels:
         retryOpts:
           attempts: 5
           initialBackoff: 100ms
-          maxBackoff: 2s
+          maxBackoff: 5s
           backoffFactor: 2.0
 
       eventService:

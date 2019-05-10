@@ -24,4 +24,6 @@ require (
 	github.com/stefanprisca/strategy-code/tfc v0.0.0-20190508101625-2882d7d9c182
 	github.com/stefanprisca/strategy-protobufs v0.0.0-20190505095635-b62e068f2a12
 	github.com/stretchr/testify v1.3.0
+	gonum.org/v1/gonum v0.0.0-20190509213835-50179cd3f3f7
+	gonum.org/v1/plot v0.0.0-20190410204940-3a5f52653745
 )

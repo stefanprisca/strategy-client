@@ -19,8 +19,12 @@ import (
 	"testing"
 	"time"
 
+	"gonum.org/v1/plot"
+	"gonum.org/v1/plot/plotter"
+	"gonum.org/v1/plot/plotutil"
+	"gonum.org/v1/plot/vg"
+
 	"github.com/golang/protobuf/proto"
-	"github.com/gonum/stat"
 
 	//mspclient "github.com/hyperledger/fabric-sdk-go/pkg/client/msp"
 
@@ -38,9 +42,9 @@ import (
 	3) Play a game
 */
 
-type perfResult struct {
-	runtimes []float64
-	peerSize int
+type runtime struct {
+	timestamp int64
+	value     float64
 }
 
 type scriptStep struct {
@@ -61,84 +65,152 @@ func scriptTTT1(p1, p2 *TFCClient) []scriptStep {
 }
 
 func TestE2E(t *testing.T) {
-	res := execTTTGame(t, "foo5", []string{Player1, Player2})
+	runName := "te2e3"
+	res, err := execTTTGame(runName, []string{Player1, Player2})
+	require.NoError(t, err)
 	log.Println(res)
+	err = plotRuntimes(res, runName)
+	require.NoError(t, err)
 }
 
-func TestGoroutines(t *testing.T) {
-	respChan := make(chan (perfResult))
-	runName := "testbar"
-	nOfRoutines := 4
+func TestGoroutinesStatic(t *testing.T) {
+	testWithRoutines(t, 4, "testgr8")
+}
+
+func TestGoroutinesIncremental(t *testing.T) {
+	testName := "testgrinc4"
+
+	for nOfRoutines := 4; nOfRoutines < 25; nOfRoutines *= 2 {
+		runName := testName + strconv.Itoa(nOfRoutines)
+		testWithRoutines(t, nOfRoutines, runName)
+	}
+}
+
+func testWithRoutines(t *testing.T, nOfRoutines int, runName string) {
+
+	respChan := make(chan ([]runtime))
 
 	playerPairs := [][]string{
 		{Player1, Player2},
-		{Player2, Player4},
+		{Player5, Player2},
+		{Player5, Player4},
 		{Player3, Player4},
 		{Player5, Player1},
 	}
 
+	log.Printf(" ############# \n\t Starting goRoutine run *%s* with %v routines, and player set %v. \n ##############",
+		runName, nOfRoutines, playerPairs)
+
 	for i := 0; i < nOfRoutines; i++ {
-		go execTTTGameAsync(t, runName+strconv.Itoa(i+1), respChan, playerPairs[i])
+		ppI := i % len(playerPairs)
+		go execTTTGameAsync(runName+strconv.Itoa(i+1), respChan, playerPairs[ppI])
 	}
 
-	perfResultMeans := []float64{}
+	perfResults := [][]runtime{}
 	for i := 0; i < nOfRoutines; i++ {
-		resp := <-respChan
-		rts := resp.runtimes
-		mean := stat.Mean(rts, nil)
-		perfResultMeans = append(perfResultMeans, mean)
+		rts := <-respChan
+		perfResults = append(perfResults, rts)
 	}
 
-	log.Println(perfResultMeans)
+	flatRts := flattenRts(perfResults)
+	log.Printf(" ############# \n\t Finished goRoutine run *%s* with runtime results %v. \n ##############",
+		runName, flatRts)
+
+	plotRuntimes(flatRts, runName)
 }
 
-func execTTTGameAsync(t *testing.T, gameName string, respChan chan (perfResult), chanOrgs []string) {
-	res := execTTTGame(t, gameName, chanOrgs)
+func execTTTGameAsync(gameName string, respChan chan ([]runtime), chanOrgs []string) {
+	res, err := execTTTGame(gameName, chanOrgs)
 	respChan <- res
+
+	if err != nil {
+		panic(err)
+	}
 }
 
-func execTTTGame(t *testing.T, gameName string, chanOrgs []string) perfResult {
+func execTTTGame(gameName string, chanOrgs []string) ([]runtime, error) {
+
+	perfResult := []runtime{}
+
 	cfgPath, err := generateChannelArtifacts(gameName, chanOrgs)
-	require.NoError(t, err)
+	if err != nil {
+		return perfResult, err
+	}
 
 	players, err := generatePlayers(cfgPath, chanOrgs, gameName)
-	require.NoError(t, err)
+	if err != nil {
+		return perfResult, err
+	}
 	defer closePlayers(players)
 
 	ccPath := "github.com/stefanprisca/strategy-code/tictactoe"
 	err = startGame(players, cfgPath, ccPath, gameName)
-	require.NoError(t, err)
+	if err != nil {
+		return perfResult, err
+	}
 
 	tttScript1 := scriptTTT1(players[0], players[1])
-	_, perfResult, err := runScript(tttScript1, gameName)
-	require.NoError(t, err)
+	_, perfResult, err = runScript(tttScript1, gameName)
+	if err != nil {
+		return perfResult, err
+	}
 
-	log.Printf("Executed test with average runtime %v", stat.Mean(perfResult.runtimes, nil))
-	return perfResult
+	log.Print("Finished running TTT game.")
+	return perfResult, nil
 }
 
-func runScript(script []scriptStep, chanName string) ([]channel.Response, perfResult, error) {
+func runScript(script []scriptStep, chanName string) ([]channel.Response, []runtime, error) {
 	responses := make([]channel.Response, len(script))
-	perf := perfResult{runtimes: make([]float64, len(script))}
+	rts := make([]runtime, len(script))
 	for i := range script {
 		msg := script[i].message
 		player := script[i].player
 		log.Printf("Executing script step %v", msg)
 		trxArgs, err := proto.Marshal(msg)
 		if err != nil {
-			return responses, perf, err
+			return responses, rts, err
 		}
 
 		st := time.Now()
 		r, err := invokeGameChaincode(player, chanName, trxArgs)
 		rt := time.Since(st).Seconds()
-		perf.runtimes[i] = rt
+
+		rts[i] = runtime{timestamp: st.Unix(), value: rt}
 		responses[i] = r
 		if err != nil {
-			return responses, perf, err
+			return responses, rts, err
 		}
 	}
 
-	return responses, perf, nil
+	return responses, rts, nil
+}
 
+func flattenRts(runtimes [][]runtime) []runtime {
+	result := []runtime{}
+	for _, rts := range runtimes {
+		result = append(result, rts...)
+	}
+	return result
+}
+
+func plotRuntimes(rts []runtime, name string) error {
+	p, err := plot.New()
+	if err != nil {
+		return err
+
+	}
+	xys := make(plotter.XYs, len(rts))
+
+	for i, r := range rts {
+		xys[i].X = float64(r.timestamp)
+		xys[i].Y = r.value
+	}
+
+	err = plotutil.AddLinePoints(p, xys)
+	if err != nil {
+		return err
+
+	}
+
+	return p.Save(4*vg.Inch, 4*vg.Inch, "plots/"+name+".png")
 }
