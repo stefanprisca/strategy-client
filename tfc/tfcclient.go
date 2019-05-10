@@ -2,13 +2,16 @@ package tfc
 
 import (
 	"fmt"
+	"os"
 	"path"
 	"strings"
 
+	"github.com/hyperledger/fabric-sdk-go/pkg/client/channel"
 	"github.com/hyperledger/fabric-sdk-go/pkg/client/resmgmt"
 	"github.com/hyperledger/fabric-sdk-go/pkg/common/providers/context"
 	"github.com/hyperledger/fabric-sdk-go/pkg/common/providers/msp"
 	"github.com/hyperledger/fabric-sdk-go/pkg/core/config"
+	"github.com/hyperledger/fabric-sdk-go/pkg/fab/resource"
 	"github.com/hyperledger/fabric-sdk-go/pkg/fabsdk"
 
 	mspclient "github.com/hyperledger/fabric-sdk-go/pkg/client/msp"
@@ -24,6 +27,7 @@ type TFCClient struct {
 	AnchorPeerConfigFile string
 	Endorser             string
 	SDK                  *fabsdk.FabricSDK
+	ChannelClient        *channel.Client
 }
 
 const (
@@ -38,7 +42,19 @@ const (
 	OrdererEndpoint = "orderer.tfc.com"
 )
 
-func NewTFCClient(fabCfgPath, clientCfgPath, org string) (*TFCClient, error) {
+var (
+	scfixturesPath = path.Join(os.Getenv("SCFIXTURES"), "tfc")
+	gopath         = os.Getenv("GOPATH")
+)
+
+type ccDescriptor struct {
+	ccID      string
+	ccPath    string
+	ccVersion string
+	ccPackage *resource.CCPackage
+}
+
+func NewTFCClient(fabCfgPath, clientCfgPath, org, gameName string) (*TFCClient, error) {
 
 	configOpt := config.FromFile(clientCfgPath)
 	sdk, err := fabsdk.New(configOpt)
@@ -70,6 +86,7 @@ func NewTFCClient(fabCfgPath, clientCfgPath, org string) (*TFCClient, error) {
 		AnchorPeerConfigFile: path.Join(fabCfgPath, org+"anchors.tx"),
 		Endorser:             org + "MSP.peer",
 		SDK:                  sdk,
+		ChannelClient:        nil,
 	}
 
 	return tfcClient, nil
