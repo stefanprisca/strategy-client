@@ -61,9 +61,10 @@ func scriptTTT1(p1, p2 *TFCClient) []scriptStep {
 }
 
 func TestE2E(t *testing.T) {
-	res := execTTTGame(t, "foo2", []string{Player1, Player2})
+	res := execTTTGame(t, "foo5", []string{Player1, Player2})
 	log.Println(res)
 }
+
 func TestGoroutines(t *testing.T) {
 	respChan := make(chan (perfResult))
 	runName := "testbar"

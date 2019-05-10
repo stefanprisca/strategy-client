@@ -6,7 +6,6 @@ import (
 	"os"
 	"os/exec"
 	"path"
-	"strconv"
 	"strings"
 	"text/template"
 
@@ -61,6 +60,11 @@ func generateChannelArtifacts(channelName string, chanOrgs []string) (string, er
 	return cfgPath, nil
 }
 
+type pConfigData struct {
+	For  string
+	Orgs []string
+}
+
 func generatePlayers(cfgPath string, chanOrgs []string, gameName string) ([]*TFCClient, error) {
 
 	players := []*TFCClient{}
@@ -72,8 +76,10 @@ func generatePlayers(cfgPath string, chanOrgs []string, gameName string) ([]*TFC
 	for i, org := range chanOrgs {
 		cfgName := org + "Config.yaml"
 		clientCfg := path.Join(cfgPath, cfgName)
-		tmplName := "p" + strconv.Itoa(i) + "Config.yaml_template"
-		err := executeTemplate(clientCfg, tmplName, lowCapOrgs)
+
+		tplName := "pConfig.yaml_template"
+		tlpData := pConfigData{lowCapOrgs[i], lowCapOrgs}
+		err := executeTemplate(clientCfg, tplName, tlpData)
 		if err != nil {
 			return nil, fmt.Errorf("could not create client cfg: %s", err)
 		}
@@ -94,7 +100,7 @@ func closePlayers(players []*TFCClient) {
 	}
 }
 
-func executeTemplate(filePath, tplName string, chanOrgs []string) error {
+func executeTemplate(filePath, tplName string, data interface{}) error {
 
 	resultFile, err := os.Create(filePath)
 	if err != nil {
@@ -107,7 +113,7 @@ func executeTemplate(filePath, tplName string, chanOrgs []string) error {
 	if err != nil {
 		return fmt.Errorf("Could not load template. %s", err)
 	}
-	tmpl.Execute(resultFile, chanOrgs)
+	tmpl.Execute(resultFile, data)
 	return nil
 }
 
