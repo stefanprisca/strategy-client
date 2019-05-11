@@ -17,14 +17,14 @@ import (
 	"fmt"
 	"log"
 	"math/rand"
+	"net/http"
 	"strconv"
 	"testing"
 	"time"
 
-	"gonum.org/v1/plot"
-	"gonum.org/v1/plot/plotter"
-	"gonum.org/v1/plot/plotutil"
-	"gonum.org/v1/plot/vg"
+	"github.com/go-kit/kit/metrics/prometheus"
+
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"github.com/golang/protobuf/proto"
 
@@ -34,6 +34,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	// "github.com/hyperledger/fabric-sdk-go/test/integration"
+	promClient "github.com/prometheus/client_golang/prometheus"
 	tttPb "github.com/stefanprisca/strategy-protobufs/tictactoe"
 )
 
@@ -66,13 +67,41 @@ func scriptTTT1(p1, p2 *TFCClient) []scriptStep {
 	}
 }
 
+var labelNames = []string{"Foo"}
+var promeHist *prometheus.Histogram
+
+func startProme() http.Server {
+
+	srv := http.Server{Addr: ":9009"}
+	http.Handle("/metrics", promhttp.Handler())
+	go func() {
+		httpError := srv.ListenAndServe()
+		if httpError != nil {
+			log.Println("While serving HTTP: ", httpError)
+		}
+	}()
+
+	promeHist = prometheus.NewHistogramFrom(
+		promClient.HistogramOpts{
+			Namespace: "tfc",
+			Subsystem: "testing",
+			Name:      "runtime",
+			Help:      "No help",
+		}, labelNames)
+
+	return srv
+}
+
 func TestE2E(t *testing.T) {
-	runName := "te2e123"
-	res, err := execTTTGame(runName, []string{Player1, Player2})
-	require.NoError(t, err)
-	log.Println(res)
-	err = plotRuntimes(res, runName)
-	require.NoError(t, err)
+	runName := "te6674467se4"
+
+	respChan := make(chan ([]runtime))
+
+	go execTTTGameAsync(runName, respChan, []string{Player1, Player2})
+	srv := startProme()
+	defer srv.Shutdown(nil)
+
+	<-respChan
 }
 
 func TestGoroutinesStatic(t *testing.T) {
@@ -80,7 +109,9 @@ func TestGoroutinesStatic(t *testing.T) {
 }
 
 func TestGoroutinesIncremental(t *testing.T) {
-	testName := "testgrinc1"
+	testName := "testgrinc5"
+	srv := startProme()
+	defer srv.Shutdown(nil)
 
 	for nOfRoutines := 1; nOfRoutines < 10; nOfRoutines *= 2 {
 		runName := testName + strconv.Itoa(nOfRoutines)
@@ -116,17 +147,8 @@ func testWithRoutines(t *testing.T, nOfRoutines int, runName string) {
 		time.Sleep(batchInterval)
 	}
 
-	perfResults := [][]runtime{}
-	for i := 0; i < nOfRoutines; i++ {
-		rts := <-respChan
-		perfResults = append(perfResults, rts)
-	}
-
-	flatRts := flattenRts(perfResults)
-	log.Printf(" ############# \n\t Finished goRoutine run *%s* with runtime results %v. \n ##############",
-		runName, flatRts)
-
-	plotRuntimes(flatRts, runName)
+	log.Printf(" ############# \n\t Finished goRoutine run *%s* . \n ##############",
+		runName)
 }
 
 func execTTTGameAsync(gameName string, respChan chan ([]runtime), chanOrgs []string) {
@@ -153,6 +175,10 @@ func execTTTGame(gameName string, chanOrgs []string) ([]runtime, error) {
 	}
 	defer closePlayers(players)
 
+	for _, p := range players {
+		p.Metrics = promeHist
+	}
+
 	ccPath := "github.com/stefanprisca/strategy-code/tictactoe"
 	err = startGame(players, cfgPath, ccPath, gameName)
 	if err != nil {
@@ -165,8 +191,8 @@ func execTTTGame(gameName string, chanOrgs []string) ([]runtime, error) {
 		return perfResult, err
 	}
 
-	log.Print("Finished running TTT game.")
-	return perfResult, nil
+	log.Printf("Finished running TTT game. Wrote metrics out")
+	return perfResult, err
 }
 
 func runScript(script []scriptStep, chanName string) ([]channel.Response, []runtime, error) {
@@ -182,11 +208,12 @@ func runScript(script []scriptStep, chanName string) ([]channel.Response, []runt
 		}
 
 		st := time.Now()
-		r, err := invokeGameChaincode(player, chanName, trxArgs)
+		_, err = invokeGameChaincode(player, chanName, trxArgs)
 		rt := time.Since(st).Seconds()
 
-		rts[i] = runtime{timestamp: st.Unix(), value: rt}
-		responses[i] = r
+		player.Metrics.
+			With(labelNames...).
+			Observe(rt)
 
 		ms := rand.Intn(1000) + 500
 		stepInterval, _ := time.ParseDuration(fmt.Sprintf("%vms", ms))
@@ -197,34 +224,4 @@ func runScript(script []scriptStep, chanName string) ([]channel.Response, []runt
 	}
 
 	return responses, rts, nil
-}
-
-func flattenRts(runtimes [][]runtime) []runtime {
-	result := []runtime{}
-	for _, rts := range runtimes {
-		result = append(result, rts...)
-	}
-	return result
-}
-
-func plotRuntimes(rts []runtime, name string) error {
-	p, err := plot.New()
-	if err != nil {
-		return err
-
-	}
-	xys := make(plotter.XYs, len(rts))
-
-	for i, r := range rts {
-		xys[i].X = float64(r.timestamp)
-		xys[i].Y = r.value
-	}
-
-	err = plotutil.AddScatters(p, xys)
-	if err != nil {
-		return err
-
-	}
-
-	return p.Save(4*vg.Inch, 4*vg.Inch, "plots/"+name+".png")
 }

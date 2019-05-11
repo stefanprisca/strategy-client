@@ -261,4 +261,4 @@ channels:
         balancer: Random
         blockHeightLagThreshold: 5
         reconnectBlockHeightLagThreshold: 10
-        peerMonitorPeriod: 3s
+        peerMonitorPeriod: 1s
