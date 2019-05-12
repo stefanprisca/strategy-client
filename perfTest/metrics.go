@@ -9,10 +9,10 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
-var labelNames = []string{"Foo"}
+var labelNames = []string{"TFC"}
 var promeHist *prometheus.Histogram
 
-func startProme() http.Server {
+func startProme() func() {
 
 	srv := http.Server{Addr: ":9009"}
 	http.Handle("/metrics", promhttp.Handler())
@@ -20,6 +20,7 @@ func startProme() http.Server {
 		httpError := srv.ListenAndServe()
 		if httpError != nil {
 			log.Println("While serving HTTP: ", httpError)
+			srv.Shutdown(nil)
 		}
 	}()
 
@@ -31,7 +32,9 @@ func startProme() http.Server {
 			Help:      "No help",
 		}, labelNames)
 
-	return srv
+	return func() {
+		srv.Shutdown(nil)
+	}
 }
 
 func GetPlayerMetrics() *prometheus.Histogram {

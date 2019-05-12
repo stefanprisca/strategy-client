@@ -31,8 +31,6 @@ func bootstrapChannel(gameName string, chanOrgs []string, ccPath string) ([]*TFC
 	if err != nil {
 		return nil, err
 	}
-	defer closePlayers(players)
-
 	for _, p := range players {
 		p.Metrics = GetPlayerMetrics()
 	}

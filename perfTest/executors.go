@@ -12,7 +12,7 @@ import (
 	tttPb "github.com/stefanprisca/strategy-protobufs/tictactoe"
 )
 
-type asyncExecutor = func(gameName, ccPath string, respChan chan (bool), chanOrgs []string)
+type asyncExecutor = func(gameName string, respChan chan (bool), orgsIn chan ([]string), orgsOut chan ([]string))
 
 type scriptStep struct {
 	message proto.Message
@@ -56,14 +56,20 @@ func scriptDRM() []drmItem {
 	return items
 }
 
-func execDRMAsync(gameName, ccPath string, respChan chan (bool), chanOrgs []string) {
-	players, err := bootstrapChannel(gameName, chanOrgs, ccPath)
+func execDRMAsync(gameName string, respChan chan (bool), orgsIn chan ([]string), orgsOut chan ([]string)) {
+
+	ccPath := "contract/fabric/drm"
+	orgs := <-orgsIn
+	players, err := bootstrapChannel(gameName, orgs, ccPath)
+	orgsOut <- orgs
+	defer closePlayers(players)
 
 	tttScript1 := scriptDRM()
 	_, err = runScriptDRM(tttScript1, gameName, players)
 	if err != nil {
 		panic(err)
 	}
+
 	log.Printf("Finished running test.")
 
 	respChan <- true
@@ -90,8 +96,19 @@ func runScriptDRM(script []drmItem, chanName string, players []*TFCClient) ([]ch
 	return responses, nil
 }
 
-func execTTTGameAsync(gameName, ccPath string, respChan chan (bool), chanOrgs []string) {
-	players, err := bootstrapChannel(gameName, chanOrgs, ccPath)
+func execTTTGameAsync(gameName string, respChan chan (bool), orgsIn chan ([]string), orgsOut chan ([]string)) {
+
+	ccPath := "github.com/stefanprisca/strategy-code/tictactoe"
+
+	orgs := <-orgsIn
+	players, err := bootstrapChannel(gameName, orgs, ccPath)
+	orgsOut <- orgs
+
+	if err != nil {
+		panic(err)
+	}
+
+	defer closePlayers(players)
 
 	tttScript1 := scriptTTT1(players[0], players[1])
 	_, err = runGameScript(tttScript1, gameName, players)

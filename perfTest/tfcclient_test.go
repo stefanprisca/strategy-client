@@ -15,11 +15,10 @@ package tfc
 
 import (
 	"log"
+	"math/rand"
 	"strconv"
 	"testing"
 	"time"
-
-	"github.com/stretchr/testify/require"
 )
 
 /*
@@ -30,31 +29,41 @@ import (
 */
 
 func TestE2E(t *testing.T) {
-	runName := "foofa66"
+	runName := "foofa665655446"
 
-	respChan := make(chan (bool))
+	promeShutdown := startProme()
+	defer promeShutdown()
 
-	ccPath := "github.com/stefanprisca/strategy-code/tictactoe"
+	respChan := make(chan (bool), 10)
+	orgsIn := make(chan ([]string), 10)
+	orgsOut := make(chan ([]string), 10)
 
-	go execTTTGameAsync(runName, ccPath, respChan, []string{Player1, Player2})
-	srv := startProme()
-	defer srv.Shutdown(nil)
+	orgsIn <- []string{Player1, Player2}
+	go execTTTGameAsync(runName, respChan, orgsIn, orgsOut)
+	<-orgsOut
 
 	<-respChan
 }
 
 func TestGoroutinesStatic(t *testing.T) {
-	srv := startProme()
-	defer srv.Shutdown(nil)
-	testWithRoutines(t, 4, "testfafa4132", execDRMAsync)
+	testName := "testgrinc"
+	rand.Seed(time.Now().Unix())
+	testName += strconv.Itoa(rand.Int())
+
+	promeShutdown := startProme()
+	defer promeShutdown()
+
+	testWithRoutines(t, 8, testName, execTTTGameAsync)
 }
 
 func TestGoroutinesIncremental(t *testing.T) {
-	testName := "testgrinc66"
-	srv := startProme()
-	defer srv.Shutdown(nil)
+	testName := "testgrinc"
+	rand.Seed(time.Now().Unix())
+	testName += strconv.Itoa(rand.Int())
+	promeShutdown := startProme()
+	defer promeShutdown()
 
-	for nOfRoutines := 1; nOfRoutines < 10; nOfRoutines *= 2 {
+	for nOfRoutines := 2; nOfRoutines < 32; nOfRoutines *= 2 {
 		runName := testName + strconv.Itoa(nOfRoutines)
 		testWithRoutines(t, nOfRoutines, runName, execTTTGameAsync)
 	}
@@ -62,33 +71,41 @@ func TestGoroutinesIncremental(t *testing.T) {
 
 func testWithRoutines(t *testing.T, nOfRoutines int, runName string, asyncExec asyncExecutor) {
 
-	respChan := make(chan (bool))
-
 	playerPairs := [][]string{
-		{Player1, Player2, Player5},
-		{Player3, Player5, Player2},
-		{Player4, Player1, Player3},
-		{Player2, Player3, Player1},
-		{Player1, Player4, Player2},
+		{Player1, Player2},
+		{Player3, Player5},
+		{Player4, Player1},
+		{Player2, Player3},
+		{Player1, Player4},
+	}
+	respChan := make(chan (bool))
+	defer close(respChan)
+	orgsIn := make(chan ([]string), len(playerPairs))
+	defer close(orgsIn)
+	orgsOut := make(chan ([]string), len(playerPairs)+1)
+	defer close(orgsOut)
+
+	for _, pp := range playerPairs {
+		orgsIn <- pp
 	}
 
 	log.Printf(" ############# \n\t Starting goRoutine run *%s* with %v routines, and player set %v. \n ##############",
 		runName, nOfRoutines, playerPairs)
 
-	batchSize := 1
-	batchInterval, err := time.ParseDuration("10s")
-	require.NoError(t, err)
-	ccPath := "github.com/stefanprisca/strategy-code/tictactoe"
+	for i := 0; i < nOfRoutines; i++ {
+		gameName := runName + strconv.Itoa(i+1)
+		go asyncExec(gameName, respChan, orgsIn, orgsOut)
+		orgsIn <- (<-orgsOut)
+	}
 
-	for i := 0; i < nOfRoutines; i += batchSize {
-		for j := i; j < i+batchSize; j++ {
-			ppI := j % len(playerPairs)
-			gameName := runName + strconv.Itoa(j+1)
-			go asyncExec(gameName, ccPath, respChan, playerPairs[ppI])
-		}
-		time.Sleep(batchInterval)
+	for i := 0; i < nOfRoutines; i++ {
+		<-respChan
 	}
 
 	log.Printf(" ############# \n\t Finished goRoutine run *%s* . \n ##############",
 		runName)
+}
+
+func generatePlayerPairs() {
+
 }
