@@ -20,6 +20,33 @@ import (
 	"github.com/hyperledger/fabric-sdk-go/third_party/github.com/hyperledger/fabric/protos/common"
 )
 
+func bootstrapChannel(gameName string, chanOrgs []string, ccPath string) ([]*TFCClient, error) {
+
+	cfgPath, err := generateChannelArtifacts(gameName, chanOrgs)
+	if err != nil {
+		return nil, err
+	}
+
+	players, err := generatePlayers(cfgPath, chanOrgs, gameName)
+	if err != nil {
+		return nil, err
+	}
+	defer closePlayers(players)
+
+	for _, p := range players {
+		p.Metrics = GetPlayerMetrics()
+	}
+
+	// ccPath := "github.com/stefanprisca/strategy-code/tictactoe"
+	// os.Setenv("GOPATH", "/home/stefan/workspace/hyperledger/caliper/packages/caliper-application")
+	//ccPath := "github.com/stefanprisca/strategy-code/tictactoe"
+	err = startGame(players, cfgPath, ccPath, gameName)
+	if err != nil {
+		return nil, err
+	}
+	return players, nil
+}
+
 type genScriptData struct {
 	Orgs          []string
 	FabricCfgPath string
@@ -335,7 +362,7 @@ func invokeGameChaincode(player *TFCClient, chanName string, protoArgs []byte) (
 	response, err := player.ChannelClient.Execute(
 		channel.Request{
 			ChaincodeID: chanName,
-			Fcn:         "move",
+			Fcn:         "publish",
 			Args:        [][]byte{protoArgs}},
 		channel.WithRetry(retry.DefaultChannelOpts))
 
