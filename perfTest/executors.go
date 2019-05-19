@@ -9,6 +9,8 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/hyperledger/fabric-sdk-go/pkg/client/channel"
+	tfcCC "github.com/stefanprisca/strategy-code/tfc"
+	tfcPb "github.com/stefanprisca/strategy-protobufs/tfc"
 	tttPb "github.com/stefanprisca/strategy-protobufs/tictactoe"
 )
 
@@ -29,6 +31,38 @@ func scriptTTT1(p1, p2 *TFCClient) []scriptStep {
 		{message: &tttPb.TrxArgs{Type: tttPb.TrxType_MOVE, MovePayload: &tttPb.MoveTrxPayload{Position: 5, Mark: tttPb.Mark_O}}, player: p2},
 		{message: &tttPb.TrxArgs{Type: tttPb.TrxType_MOVE, MovePayload: &tttPb.MoveTrxPayload{Position: 6, Mark: tttPb.Mark_X}}, player: p1},
 	}
+}
+
+func scriptTFC1(p1, p2, p3 *TFCClient) []scriptStep {
+
+	p1C, p2C, p3C := tfcPb.Player_RED, tfcPb.Player_GREEN, tfcPb.Player_BLUE
+
+	s := []scriptStep{
+		{message: tfcCC.NewArgsBuilder().WithJoinArgs(p1C).Args(), player: p1},
+		{message: tfcCC.NewArgsBuilder().WithJoinArgs(p2C).Args(), player: p2},
+		{message: tfcCC.NewArgsBuilder().WithJoinArgs(p3C).Args(), player: p3},
+		{message: tfcCC.NewArgsBuilder().WithRollArgs().Args(), player: p1},
+		{message: tfcCC.NewArgsBuilder().WithTradeArgs(p1C, p2C, tfcPb.Resource_CAMP, 2).Args(), player: p1},
+		{message: tfcCC.NewArgsBuilder().WithTradeArgs(p1C, p3C, tfcPb.Resource_HILL, -2).Args(), player: p1},
+		{message: tfcCC.NewArgsBuilder().WithNextArgs().Args(), player: p1},
+		{message: tfcCC.NewArgsBuilder().WithNextArgs().Args(), player: p1},
+		{message: tfcCC.NewArgsBuilder().WithRollArgs().Args(), player: p2},
+		{message: tfcCC.NewArgsBuilder().WithTradeArgs(p2C, p1C, tfcPb.Resource_CAMP, 2).Args(), player: p2},
+		{message: tfcCC.NewArgsBuilder().WithTradeArgs(p2C, p3C, tfcPb.Resource_PASTURE, -2).Args(), player: p2},
+		{message: tfcCC.NewArgsBuilder().WithNextArgs().Args(), player: p2},
+		{message: tfcCC.NewArgsBuilder().WithNextArgs().Args(), player: p2},
+		{message: tfcCC.NewArgsBuilder().WithRollArgs().Args(), player: p3},
+		{message: tfcCC.NewArgsBuilder().WithTradeArgs(p3C, p1C, tfcPb.Resource_HILL, -2).Args(), player: p3},
+		{message: tfcCC.NewArgsBuilder().WithTradeArgs(p3C, p2C, tfcPb.Resource_PASTURE, -2).Args(), player: p3},
+		{message: tfcCC.NewArgsBuilder().WithNextArgs().Args(), player: p3},
+		{message: tfcCC.NewArgsBuilder().WithNextArgs().Args(), player: p3},
+	}
+
+	for i := 0; i < 5; i++ {
+		s = append(s, s[3:]...)
+	}
+
+	return s
 }
 
 type drmItem struct {
@@ -60,7 +94,7 @@ func execDRMAsync(gameName string, respChan chan (bool), orgsIn chan ([]string),
 
 	ccPath := "contract/fabric/drm"
 	orgs := <-orgsIn
-	players, err := bootstrapChannel(gameName, orgs, ccPath)
+	players, err := bootstrapChannel(gameName, orgs[:2], ccPath)
 	orgsOut <- orgs
 	defer closePlayers(players)
 
@@ -86,7 +120,7 @@ func runScriptDRM(script []drmItem, chanName string, players []*TFCClient) ([]ch
 		}
 
 		pID := i % len(players)
-		r, err := invokeAndMeasure(players[pID], chanName, trxArgs)
+		r, err := invokeAndMeasure(players[pID], chanName, trxArgs, "DRM")
 		if err != nil {
 			return responses, err
 		}
@@ -101,7 +135,7 @@ func execTTTGameAsync(gameName string, respChan chan (bool), orgsIn chan ([]stri
 	ccPath := "github.com/stefanprisca/strategy-code/tictactoe"
 
 	orgs := <-orgsIn
-	players, err := bootstrapChannel(gameName, orgs, ccPath)
+	players, err := bootstrapChannel(gameName, orgs[:2], ccPath)
 	orgsOut <- orgs
 
 	if err != nil {
@@ -112,6 +146,30 @@ func execTTTGameAsync(gameName string, respChan chan (bool), orgsIn chan ([]stri
 
 	tttScript1 := scriptTTT1(players[0], players[1])
 	_, err = runGameScript(tttScript1, gameName, players)
+	if err != nil {
+		panic(err)
+	}
+	log.Printf("Finished running test.")
+
+	respChan <- true
+}
+
+func execTFCGameAsync(gameName string, respChan chan (bool), orgsIn chan ([]string), orgsOut chan ([]string)) {
+
+	ccPath := "github.com/stefanprisca/strategy-code/cmd/tfc"
+
+	orgs := <-orgsIn
+	players, err := bootstrapChannel(gameName, orgs, ccPath)
+	orgsOut <- orgs
+
+	if err != nil {
+		panic(err)
+	}
+
+	defer closePlayers(players)
+
+	tfcScript := scriptTFC1(players[0], players[1], players[2])
+	_, err = runGameScript(tfcScript, gameName, players)
 	if err != nil {
 		panic(err)
 	}
@@ -131,7 +189,7 @@ func runGameScript(script []scriptStep, chanName string, players []*TFCClient) (
 			return responses, err
 		}
 
-		r, err := invokeAndMeasure(player, chanName, trxArgs)
+		r, err := invokeAndMeasure(player, chanName, trxArgs, chanName[:3])
 		if err != nil {
 			return responses, err
 		}
@@ -141,7 +199,7 @@ func runGameScript(script []scriptStep, chanName string, players []*TFCClient) (
 	return responses, nil
 }
 
-func invokeAndMeasure(player *TFCClient, chanName string, trxArgs []byte) (channel.Response, error) {
+func invokeAndMeasure(player *TFCClient, chanName string, trxArgs []byte, ccLabel string) (channel.Response, error) {
 
 	st := time.Now()
 	r, err := invokeGameChaincode(player, chanName, trxArgs)
@@ -150,9 +208,8 @@ func invokeAndMeasure(player *TFCClient, chanName string, trxArgs []byte) (chann
 	}
 
 	rt := time.Since(st).Seconds()
-	labels := GetPromLabels()
 	player.Metrics.
-		With(labels...).
+		With(CCLabel, ccLabel).
 		Observe(rt)
 
 	// ms := rand.Intn(1000) + 500

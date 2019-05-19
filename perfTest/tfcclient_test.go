@@ -29,7 +29,7 @@ import (
 */
 
 func TestE2E(t *testing.T) {
-	runName := "foofa665655446"
+	runName := "tfc6666"
 
 	promeShutdown := startProme()
 	defer promeShutdown()
@@ -38,8 +38,8 @@ func TestE2E(t *testing.T) {
 	orgsIn := make(chan ([]string), 10)
 	orgsOut := make(chan ([]string), 10)
 
-	orgsIn <- []string{Player1, Player2}
-	go execTTTGameAsync(runName, respChan, orgsIn, orgsOut)
+	orgsIn <- []string{Player1, Player2, Player3}
+	go execTFCGameAsync(runName, respChan, orgsIn, orgsOut)
 	<-orgsOut
 
 	<-respChan
@@ -72,11 +72,11 @@ func TestGoroutinesIncremental(t *testing.T) {
 func testWithRoutines(t *testing.T, nOfRoutines int, runName string, asyncExec asyncExecutor) {
 
 	playerPairs := [][]string{
-		{Player1, Player2},
-		{Player3, Player5},
-		{Player4, Player1},
-		{Player2, Player3},
-		{Player1, Player4},
+		{Player1, Player2, Player3},
+		{Player3, Player5, Player4},
+		{Player4, Player1, Player2},
+		{Player2, Player3, Player5},
+		{Player5, Player4, Player1},
 	}
 	respChan := make(chan (bool))
 	defer close(respChan)

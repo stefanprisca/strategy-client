@@ -9,7 +9,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
-var labelNames = []string{"TFC"}
+var CCLabel = "CC"
 var promeHist *prometheus.Histogram
 
 func startProme() func() {
@@ -30,7 +30,7 @@ func startProme() func() {
 			Subsystem: "testing",
 			Name:      "runtime",
 			Help:      "No help",
-		}, labelNames)
+		}, []string{CCLabel})
 
 	return func() {
 		srv.Shutdown(nil)
@@ -40,8 +40,4 @@ func startProme() func() {
 func GetPlayerMetrics() *prometheus.Histogram {
 
 	return promeHist
-}
-
-func GetPromLabels() []string {
-	return labelNames
 }
