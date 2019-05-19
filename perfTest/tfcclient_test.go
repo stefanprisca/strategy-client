@@ -63,10 +63,21 @@ func TestGoroutinesIncremental(t *testing.T) {
 	promeShutdown := startProme()
 	defer promeShutdown()
 
+	nOfTfc := 3
+	tfcDone := make(chan (bool), nOfTfc)
+	go testWithRoutinesAsync(t, nOfTfc, testName, execTFCGameAsync, tfcDone)
+
 	for nOfRoutines := 2; nOfRoutines < 32; nOfRoutines *= 2 {
 		runName := testName + strconv.Itoa(nOfRoutines)
 		testWithRoutines(t, nOfRoutines, runName, execTTTGameAsync)
 	}
+
+	<-tfcDone
+}
+
+func testWithRoutinesAsync(t *testing.T, nOfRoutines int, runName string, asyncExec asyncExecutor, done chan (bool)) {
+	testWithRoutines(t, nOfRoutines, runName, asyncExec)
+	done <- true
 }
 
 func testWithRoutines(t *testing.T, nOfRoutines int, runName string, asyncExec asyncExecutor) {
@@ -104,8 +115,4 @@ func testWithRoutines(t *testing.T, nOfRoutines int, runName string, asyncExec a
 
 	log.Printf(" ############# \n\t Finished goRoutine run *%s* . \n ##############",
 		runName)
-}
-
-func generatePlayerPairs() {
-
 }

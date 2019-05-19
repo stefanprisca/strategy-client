@@ -2,6 +2,7 @@ package tfc
 
 import (
 	"log"
+	"math"
 	"net/http"
 
 	"github.com/go-kit/kit/metrics/prometheus"
@@ -30,6 +31,7 @@ func startProme() func() {
 			Subsystem: "testing",
 			Name:      "runtime",
 			Help:      "No help",
+			Buckets:   []float64{2.5, 10, math.Inf(1)},
 		}, []string{CCLabel})
 
 	return func() {

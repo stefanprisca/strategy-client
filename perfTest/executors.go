@@ -145,7 +145,7 @@ func execTTTGameAsync(gameName string, respChan chan (bool), orgsIn chan ([]stri
 	defer closePlayers(players)
 
 	tttScript1 := scriptTTT1(players[0], players[1])
-	_, err = runGameScript(tttScript1, gameName, players)
+	_, err = runGameScript(tttScript1, gameName, players, "TTT")
 	if err != nil {
 		panic(err)
 	}
@@ -169,7 +169,7 @@ func execTFCGameAsync(gameName string, respChan chan (bool), orgsIn chan ([]stri
 	defer closePlayers(players)
 
 	tfcScript := scriptTFC1(players[0], players[1], players[2])
-	_, err = runGameScript(tfcScript, gameName, players)
+	_, err = runGameScript(tfcScript, gameName, players, "TFC")
 	if err != nil {
 		panic(err)
 	}
@@ -178,7 +178,7 @@ func execTFCGameAsync(gameName string, respChan chan (bool), orgsIn chan ([]stri
 	respChan <- true
 }
 
-func runGameScript(script []scriptStep, chanName string, players []*TFCClient) ([]channel.Response, error) {
+func runGameScript(script []scriptStep, chanName string, players []*TFCClient, ccName string) ([]channel.Response, error) {
 	responses := make([]channel.Response, len(script))
 	for i := range script {
 		msg := script[i].message
@@ -189,7 +189,7 @@ func runGameScript(script []scriptStep, chanName string, players []*TFCClient) (
 			return responses, err
 		}
 
-		r, err := invokeAndMeasure(player, chanName, trxArgs, chanName[:3])
+		r, err := invokeAndMeasure(player, chanName, trxArgs, ccName)
 		if err != nil {
 			return responses, err
 		}
@@ -199,7 +199,7 @@ func runGameScript(script []scriptStep, chanName string, players []*TFCClient) (
 	return responses, nil
 }
 
-func invokeAndMeasure(player *TFCClient, chanName string, trxArgs []byte, ccLabel string) (channel.Response, error) {
+func invokeAndMeasure(player *TFCClient, chanName string, trxArgs []byte, ccName string) (channel.Response, error) {
 
 	st := time.Now()
 	r, err := invokeGameChaincode(player, chanName, trxArgs)
@@ -209,7 +209,7 @@ func invokeAndMeasure(player *TFCClient, chanName string, trxArgs []byte, ccLabe
 
 	rt := time.Since(st).Seconds()
 	player.Metrics.
-		With(CCLabel, ccLabel).
+		With(CCLabel, ccName).
 		Observe(rt)
 
 	// ms := rand.Intn(1000) + 500
