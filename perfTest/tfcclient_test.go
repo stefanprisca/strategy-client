@@ -57,7 +57,7 @@ func TestGoroutinesStatic(t *testing.T) {
 }
 
 func TestGoroutinesIncremental(t *testing.T) {
-	testName := "testgrinc"
+	testName := "testgri2nc"
 	rand.Seed(time.Now().Unix())
 	testName += strconv.Itoa(rand.Int())
 	promeShutdown := startProme()
@@ -65,11 +65,11 @@ func TestGoroutinesIncremental(t *testing.T) {
 
 	nOfTfc := 3
 	tfcDone := make(chan (bool), nOfTfc)
-	go testWithRoutinesAsync(t, nOfTfc, testName, execTFCGameAsync, tfcDone)
+	go testWithRoutinesAsync(t, nOfTfc, "tfc"+testName, execTFCGameAsync, tfcDone)
 
 	for nOfRoutines := 2; nOfRoutines < 32; nOfRoutines *= 2 {
 		runName := testName + strconv.Itoa(nOfRoutines)
-		testWithRoutines(t, nOfRoutines, runName, execTTTGameAsync)
+		testWithRoutines(t, nOfRoutines, "ttt"+runName, execTTTGameAsync)
 	}
 
 	<-tfcDone

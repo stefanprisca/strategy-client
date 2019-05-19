@@ -189,10 +189,7 @@ func runGameScript(script []scriptStep, chanName string, players []*TFCClient, c
 			return responses, err
 		}
 
-		r, err := invokeAndMeasure(player, chanName, trxArgs, ccName)
-		if err != nil {
-			return responses, err
-		}
+		r, _ := invokeAndMeasure(player, chanName, trxArgs, ccName)
 		responses[i] = r
 	}
 
@@ -203,13 +200,19 @@ func invokeAndMeasure(player *TFCClient, chanName string, trxArgs []byte, ccName
 
 	st := time.Now()
 	r, err := invokeGameChaincode(player, chanName, trxArgs)
+	rt := time.Since(st).Seconds()
+
 	if err != nil {
+		player.Metrics.
+			With(CCLabel, ccName).
+			With(CCFailedLabel, "True").
+			Observe(rt)
 		return r, err
 	}
 
-	rt := time.Since(st).Seconds()
 	player.Metrics.
 		With(CCLabel, ccName).
+		With(CCFailedLabel, "False").
 		Observe(rt)
 
 	// ms := rand.Intn(1000) + 500

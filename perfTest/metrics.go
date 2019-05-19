@@ -11,6 +11,8 @@ import (
 )
 
 var CCLabel = "CC"
+var CCFailedLabel = "Failed"
+
 var promeHist *prometheus.Histogram
 
 func startProme() func() {
@@ -31,8 +33,8 @@ func startProme() func() {
 			Subsystem: "testing",
 			Name:      "runtime",
 			Help:      "No help",
-			Buckets:   []float64{2.5, 10, math.Inf(1)},
-		}, []string{CCLabel})
+			Buckets:   []float64{2.5, math.Inf(1)},
+		}, []string{CCLabel, CCFailedLabel})
 
 	return func() {
 		srv.Shutdown(nil)
