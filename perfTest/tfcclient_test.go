@@ -29,7 +29,7 @@ import (
 */
 
 func TestE2E(t *testing.T) {
-	runName := "tfc6666"
+	runName := "tfc977"
 
 	promeShutdown := startProme()
 	defer promeShutdown()

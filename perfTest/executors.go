@@ -2,6 +2,7 @@ package tfc
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"math/rand"
 	"strconv"
@@ -9,6 +10,7 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/hyperledger/fabric-sdk-go/pkg/client/channel"
+	"github.com/stefanprisca/strategy-code/tfc"
 	tfcCC "github.com/stefanprisca/strategy-code/tfc"
 	tfcPb "github.com/stefanprisca/strategy-protobufs/tfc"
 	tttPb "github.com/stefanprisca/strategy-protobufs/tictactoe"
@@ -58,9 +60,9 @@ func scriptTFC1(p1, p2, p3 *TFCClient) []scriptStep {
 		{message: tfcCC.NewArgsBuilder().WithNextArgs().Args(), player: p3},
 	}
 
-	for i := 0; i < 5; i++ {
-		s = append(s, s[3:]...)
-	}
+	// for i := 0; i < 5; i++ {
+	// 	s = append(s, s[3:]...)
+	// }
 
 	return s
 }
@@ -167,12 +169,29 @@ func execTFCGameAsync(gameName string, respChan chan (bool), orgsIn chan ([]stri
 	}
 
 	defer closePlayers(players)
-
 	tfcScript := scriptTFC1(players[0], players[1], players[2])
-	_, err = runGameScript(tfcScript, gameName, players, "TFC")
+	// tfcScriptP1 := tfcScript[:8]
+	tfcScriptP2 := tfcScript[8:]
+
+	// _, err = runGameScript(tfcScriptP1, gameName, players, "TFC")
+	// if err != nil {
+	// 	panic(err)
+	// }
+
+	allianceCCPath := "github.com/stefanprisca/strategy-code/cmd/alliance"
+	allies := []*TFCClient{players[1], players[2]}
+	allianceUUID := uint32(10012)
+
+	err = makeAlliance(allianceCCPath, gameName, allianceUUID, allies)
 	if err != nil {
 		panic(err)
 	}
+
+	_, err = runGameScript(tfcScriptP2, gameName, players, "TFC")
+	if err != nil {
+		panic(err)
+	}
+
 	log.Printf("Finished running test.")
 
 	respChan <- true
@@ -190,6 +209,18 @@ func runGameScript(script []scriptStep, chanName string, players []*TFCClient, c
 		}
 
 		r, _ := invokeAndMeasure(player, chanName, trxArgs, ccName)
+
+		if gcArgs, ok := script[i].message.(*tfcPb.GameContractTrxArgs); ok {
+
+			for _, ccReg := range player.GameObservers {
+				notifyArgs := &tfcPb.TrxCompletedArgs{
+					CompletedTrxArgs: gcArgs,
+					ObserverID:       ccReg.UUID,
+				}
+				ccReg.TrxComplete <- notifyArgs
+			}
+		}
+
 		responses[i] = r
 	}
 
@@ -215,8 +246,38 @@ func invokeAndMeasure(player *TFCClient, chanName string, trxArgs []byte, ccName
 		With(CCFailedLabel, "False").
 		Observe(rt)
 
-	// ms := rand.Intn(1000) + 500
-	// stepInterval, _ := time.ParseDuration(fmt.Sprintf("%vms", ms))
-	// time.Sleep(stepInterval)
 	return r, nil
+}
+
+func makeAlliance(allianceCCPath, gameName string, allianceUUID uint32, allies []*TFCClient) error {
+
+	log.Printf("Creating alliance...")
+	allianceName := gameName + fmt.Sprintf("%d", allianceUUID)
+
+	term := tfc.NewArgsBuilder().
+		WithTradeArgs(tfcPb.Player_RED, tfcPb.Player_GREEN, tfcPb.Resource_FOREST, 3).
+		Args()
+	ad := &tfcPb.AllianceData{
+		Lifespan:       1,
+		StartGameState: tfcPb.GameState_RTRADE,
+		Terms:          []*tfcPb.GameContractTrxArgs{term},
+		ContractID:     allianceUUID,
+	}
+
+	protoData, err := proto.Marshal(ad)
+	if err != nil {
+		return err
+	}
+
+	log.Printf("Installing the alliance chaincode...")
+	err = deployChaincode(allianceCCPath, allianceName, gameName, allies, [][]byte{[]byte{}, protoData})
+	if err != nil {
+		return err
+	}
+
+	for _, a := range allies {
+		registerCCListener(a, allianceName, allianceUUID)
+	}
+
+	return nil
 }
