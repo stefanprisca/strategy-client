@@ -133,9 +133,10 @@ func closePlayers(players []*TFCClient) {
 	for _, p := range players {
 		p.SDK.Close()
 		for _, ccReg := range p.GameObservers {
+			if ccReg.terminated {
+				continue
+			}
 			ccReg.Shutdown <- true
-			close(ccReg.TrxComplete)
-			close(ccReg.Shutdown)
 		}
 	}
 }
@@ -369,32 +370,48 @@ func runChaincode(players []*TFCClient, ccReq resmgmt.InstallCCRequest,
 	return err
 }
 
-func invokeGameChaincode(player *TFCClient, chanName string, protoArgs []byte) (channel.Response, error) {
+func makeAlliance(gameName string, allianceUUID uint32, allies []*TFCClient, terms ...*tfcPb.GameContractTrxArgs) error {
 
-	log.Printf("Invoking game chaincode for client %v on channel %s", player, chanName)
+	allianceCCPath := "github.com/stefanprisca/strategy-code/alliance"
+	log.Printf("Creating alliance...")
+	allianceName := gameName + fmt.Sprintf("%d", allianceUUID)
 
-	response, err := player.ChannelClient.Execute(
-		channel.Request{
-			ChaincodeID: chanName,
-			Fcn:         "publish",
-			Args:        [][]byte{protoArgs}},
-		channel.WithRetry(retry.DefaultChannelOpts))
-
-	if err != nil {
-		return channel.Response{}, fmt.Errorf("Failed to invoke cc: %s", err)
+	ad := &tfcPb.AllianceData{
+		Lifespan:       3,
+		StartGameState: tfcPb.GameState_RTRADE,
+		Terms:          terms,
+		ContractID:     allianceUUID,
 	}
 
-	return response, nil
+	protoData, err := proto.Marshal(ad)
+	if err != nil {
+		return err
+	}
+
+	log.Printf("Installing the alliance chaincode...")
+	err = deployChaincode(allianceCCPath, allianceName, gameName, allies, [][]byte{[]byte{}, protoData})
+	if err != nil {
+		return err
+	}
+
+	obs := registerCCListener(allies[0], allianceName, allianceUUID)
+
+	for _, a := range allies[1:] {
+		a.GameObservers = append(a.GameObservers, obs)
+	}
+
+	return nil
 }
 
-func registerCCListener(player *TFCClient, ccName string, uuid uint32) {
+func registerCCListener(player *TFCClient, ccName string, uuid uint32) *GameObserver {
 
 	shutdown := make(chan bool, 100)
 	trxComplete := make(chan *tfcPb.TrxCompletedArgs, 100)
-	observer := &GameObserver{trxComplete, shutdown, ccName, uuid}
+	observer := &GameObserver{trxComplete, shutdown, ccName, uuid, false}
 
 	go handleCCEventsAsync(player, observer)
 	player.GameObservers = append(player.GameObservers, observer)
+	return observer
 }
 
 func handleCCEventsAsync(player *TFCClient, gameObserver *GameObserver) {
@@ -403,6 +420,7 @@ func handleCCEventsAsync(player *TFCClient, gameObserver *GameObserver) {
 		select {
 		case <-gameObserver.Shutdown:
 			log.Println("received shutdown message...terminating")
+			gameObserver.Terminate()
 			return
 		case ev := <-gameObserver.TrxComplete:
 			log.Printf("received cc event...processing tx completed %v", ev)
@@ -412,7 +430,23 @@ func handleCCEventsAsync(player *TFCClient, gameObserver *GameObserver) {
 				panic(err)
 			}
 
-			invokeGameChaincode(player, gameObserver.Name, protoData)
+			r, err := invokeAndMeasure(player, gameObserver.Name, protoData, "Alliance")
+			if err != nil {
+				panic(err)
+			}
+
+			allianceResp := &tfcPb.AllianceData{}
+			err = proto.Unmarshal(r.Payload, allianceResp)
+			if err != nil {
+				panic(err)
+			}
+
+			log.Printf("Got alliance response  %v", allianceResp)
+			if allianceResp.State != tfcPb.AllianceState_ACTIVE {
+				log.Println("Alliance completed, ending observer loop.")
+				gameObserver.Terminate()
+				return
+			}
 
 		default:
 			log.Println("no messages received, sleeping a bit")
@@ -422,4 +456,44 @@ func handleCCEventsAsync(player *TFCClient, gameObserver *GameObserver) {
 		time.Sleep(timeout)
 	}
 
+}
+
+func invokeAndMeasure(player *TFCClient, ccName string, trxArgs []byte, ccLabel string) (channel.Response, error) {
+
+	st := time.Now()
+	r, err := invokeGameChaincode(player, ccName, trxArgs)
+	rt := time.Since(st).Seconds()
+
+	if err != nil {
+		player.Metrics.
+			With(CCLabel, ccLabel).
+			With(CCFailedLabel, "True").
+			Observe(rt)
+		return r, err
+	}
+
+	player.Metrics.
+		With(CCLabel, ccLabel).
+		With(CCFailedLabel, "False").
+		Observe(rt)
+
+	return r, nil
+}
+
+func invokeGameChaincode(player *TFCClient, ccName string, protoArgs []byte) (channel.Response, error) {
+
+	log.Printf("Invoking game chaincode for client %v on channel %s", player, ccName)
+
+	response, err := player.ChannelClient.Execute(
+		channel.Request{
+			ChaincodeID: ccName,
+			Fcn:         "publish",
+			Args:        [][]byte{protoArgs}},
+		channel.WithRetry(retry.DefaultChannelOpts))
+
+	if err != nil {
+		return channel.Response{}, fmt.Errorf("Failed to invoke cc: %s", err)
+	}
+
+	return response, nil
 }

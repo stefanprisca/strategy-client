@@ -24,6 +24,13 @@ type GameObserver struct {
 	Shutdown    chan bool
 	Name        string
 	UUID        uint32
+	terminated  bool
+}
+
+func (gObs *GameObserver) Terminate() {
+	close(gObs.Shutdown)
+	close(gObs.TrxComplete)
+	gObs.terminated = true
 }
 
 // OrgContext provides SDK client context for a given org

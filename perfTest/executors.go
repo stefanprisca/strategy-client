@@ -2,7 +2,6 @@ package tfc
 
 import (
 	"encoding/json"
-	"fmt"
 	"log"
 	"math/rand"
 	"strconv"
@@ -35,36 +34,64 @@ func scriptTTT1(p1, p2 *TFCClient) []scriptStep {
 	}
 }
 
-func scriptTFC1(p1, p2, p3 *TFCClient) []scriptStep {
+type asyncAcriptAllianceGenerator func(int, string, chan error)
+
+func scriptTFC1(p1, p2, p3 *TFCClient) ([]scriptStep, asyncAcriptAllianceGenerator) {
 
 	p1C, p2C, p3C := tfcPb.Player_RED, tfcPb.Player_GREEN, tfcPb.Player_BLUE
+
+	colors := map[string]tfcPb.Player{
+		p1.OrgID: p1C, p2.OrgID: p2C, p3.OrgID: p3C,
+	}
 
 	s := []scriptStep{
 		{message: tfcCC.NewArgsBuilder().WithJoinArgs(p1C).Args(), player: p1},
 		{message: tfcCC.NewArgsBuilder().WithJoinArgs(p2C).Args(), player: p2},
 		{message: tfcCC.NewArgsBuilder().WithJoinArgs(p3C).Args(), player: p3},
-		// {message: tfcCC.NewArgsBuilder().WithRollArgs().Args(), player: p1},
-		// {message: tfcCC.NewArgsBuilder().WithTradeArgs(p1C, p2C, tfcPb.Resource_CAMP, 2).Args(), player: p1},
-		// {message: tfcCC.NewArgsBuilder().WithTradeArgs(p1C, p3C, tfcPb.Resource_HILL, -2).Args(), player: p1},
-		// {message: tfcCC.NewArgsBuilder().WithNextArgs().Args(), player: p1},
-		// {message: tfcCC.NewArgsBuilder().WithNextArgs().Args(), player: p1},
-		// {message: tfcCC.NewArgsBuilder().WithRollArgs().Args(), player: p2},
-		// {message: tfcCC.NewArgsBuilder().WithTradeArgs(p2C, p1C, tfcPb.Resource_CAMP, 2).Args(), player: p2},
-		// {message: tfcCC.NewArgsBuilder().WithTradeArgs(p2C, p3C, tfcPb.Resource_PASTURE, -2).Args(), player: p2},
-		// {message: tfcCC.NewArgsBuilder().WithNextArgs().Args(), player: p2},
-		// {message: tfcCC.NewArgsBuilder().WithNextArgs().Args(), player: p2},
-		// {message: tfcCC.NewArgsBuilder().WithRollArgs().Args(), player: p3},
-		// {message: tfcCC.NewArgsBuilder().WithTradeArgs(p3C, p1C, tfcPb.Resource_HILL, -2).Args(), player: p3},
-		// {message: tfcCC.NewArgsBuilder().WithTradeArgs(p3C, p2C, tfcPb.Resource_PASTURE, -2).Args(), player: p3},
-		// {message: tfcCC.NewArgsBuilder().WithNextArgs().Args(), player: p3},
-		// {message: tfcCC.NewArgsBuilder().WithNextArgs().Args(), player: p3},
+		{message: tfcCC.NewArgsBuilder().WithRollArgs().Args(), player: p1},
+		{message: tfcCC.NewArgsBuilder().WithTradeArgs(p1C, p2C, tfcPb.Resource_HILL, 2).Args(), player: p1},
+		{message: tfcCC.NewArgsBuilder().WithTradeArgs(p1C, p3C, tfcPb.Resource_HILL, 2).Args(), player: p1},
+		{message: tfcCC.NewArgsBuilder().WithNextArgs().Args(), player: p1},
+		{message: tfcCC.NewArgsBuilder().WithNextArgs().Args(), player: p1},
+		{message: tfcCC.NewArgsBuilder().WithRollArgs().Args(), player: p2},
+		{message: tfcCC.NewArgsBuilder().WithTradeArgs(p2C, p1C, tfcPb.Resource_HILL, 2).Args(), player: p2},
+		{message: tfcCC.NewArgsBuilder().WithTradeArgs(p2C, p3C, tfcPb.Resource_HILL, 2).Args(), player: p2},
+		{message: tfcCC.NewArgsBuilder().WithNextArgs().Args(), player: p2},
+		{message: tfcCC.NewArgsBuilder().WithNextArgs().Args(), player: p2},
+		{message: tfcCC.NewArgsBuilder().WithRollArgs().Args(), player: p3},
+		{message: tfcCC.NewArgsBuilder().WithTradeArgs(p3C, p1C, tfcPb.Resource_HILL, 2).Args(), player: p3},
+		{message: tfcCC.NewArgsBuilder().WithTradeArgs(p3C, p2C, tfcPb.Resource_HILL, 2).Args(), player: p3},
+		{message: tfcCC.NewArgsBuilder().WithNextArgs().Args(), player: p3},
+		{message: tfcCC.NewArgsBuilder().WithNextArgs().Args(), player: p3},
 	}
 
-	// for i := 0; i < 5; i++ {
-	// 	s = append(s, s[3:]...)
-	// }
+	for i := 0; i < 5; i++ {
+		s = append(s, s[3:]...)
+	}
 
-	return s
+	return s, func(i int, gameName string, eOut chan error) {
+		a1 := s[i%3].player
+		a2 := s[(i+1)%3].player
+
+		allies := []*TFCClient{a1, a2}
+		allianceUUID := uint32(100 + i)
+
+		terms := []*tfcPb.GameContractTrxArgs{
+			tfc.NewArgsBuilder().
+				WithTradeArgs(colors[a1.OrgID], colors[a2.OrgID], tfcPb.Resource_HILL, 2).
+				Args(),
+			tfc.NewArgsBuilder().
+				WithTradeArgs(colors[a2.OrgID], colors[a1.OrgID], tfcPb.Resource_HILL, 2).
+				Args(),
+		}
+
+		for i := 0; i < 3; i++ {
+			terms = append(terms, terms...)
+		}
+
+		eOut <- makeAlliance(gameName, allianceUUID, allies, terms...)
+
+	}
 }
 
 type drmItem struct {
@@ -169,36 +196,37 @@ func execTFCGameAsync(gameName string, respChan chan (bool), orgsIn chan ([]stri
 	}
 
 	defer closePlayers(players)
-	tfcScript := scriptTFC1(players[0], players[1], players[2])
-	// tfcScriptP1 := tfcScript[:8]
-	// tfcScriptP2 := tfcScript[8:]
+	tfcScript, alGenerator := scriptTFC1(players[0], players[1], players[2])
 
-	// _, err = runGameScript(tfcScriptP1, gameName, players, "TFC")
-	// if err != nil {
-	// 	panic(err)
-	// }
+	allianceErrOut := make(chan (error), len(tfcScript))
 
-	allies := []*TFCClient{players[1], players[2]}
-	allianceUUID := uint32(10012)
+	j := 0
+	for i := 0; i < len(tfcScript); i += 20 {
+		_, err = runGameScript(tfcScript[j:i], gameName, players, "TFC")
+		if err != nil {
+			panic(err)
+		}
 
-	err = makeAlliance(gameName, allianceUUID, allies)
-	if err != nil {
-		panic(err)
-	}
-
-	_, err = runGameScript(tfcScript, gameName, players, "TFC")
-	if err != nil {
-		panic(err)
+		go alGenerator(i, gameName, allianceErrOut)
+		j = i
 	}
 
 	log.Printf("Finished running test.")
+
+	select {
+	case err = <-allianceErrOut:
+		if err != nil {
+			panic(err)
+		}
+	default:
+	}
 
 	respChan <- true
 }
 
 func runGameScript(script []scriptStep, chanName string, players []*TFCClient, ccName string) ([]channel.Response, error) {
 	responses := make([]channel.Response, len(script))
-	for i := range script {
+	for i := 0; i < len(script); i++ {
 		msg := script[i].message
 		player := script[i].player
 		log.Printf("Executing script step %v", msg)
@@ -207,11 +235,21 @@ func runGameScript(script []scriptStep, chanName string, players []*TFCClient, c
 			return responses, err
 		}
 
-		r, _ := invokeAndMeasure(player, chanName, trxArgs, ccName)
+		r, err := invokeAndMeasure(player, chanName, trxArgs, ccName)
+
+		if err != nil {
+			log.Println(err.Error())
+			i--
+			continue
+		}
 
 		if gcArgs, ok := script[i].message.(*tfcPb.GameContractTrxArgs); ok {
 
 			for _, ccReg := range player.GameObservers {
+				if ccReg.terminated {
+					continue
+				}
+
 				notifyArgs := &tfcPb.TrxCompletedArgs{
 					CompletedTrxArgs: gcArgs,
 					ObserverID:       ccReg.UUID,
@@ -224,60 +262,4 @@ func runGameScript(script []scriptStep, chanName string, players []*TFCClient, c
 	}
 
 	return responses, nil
-}
-
-func invokeAndMeasure(player *TFCClient, chanName string, trxArgs []byte, ccName string) (channel.Response, error) {
-
-	st := time.Now()
-	r, err := invokeGameChaincode(player, chanName, trxArgs)
-	rt := time.Since(st).Seconds()
-
-	if err != nil {
-		player.Metrics.
-			With(CCLabel, ccName).
-			With(CCFailedLabel, "True").
-			Observe(rt)
-		return r, err
-	}
-
-	player.Metrics.
-		With(CCLabel, ccName).
-		With(CCFailedLabel, "False").
-		Observe(rt)
-
-	return r, nil
-}
-
-func makeAlliance(gameName string, allianceUUID uint32, allies []*TFCClient) error {
-
-	allianceCCPath := "github.com/stefanprisca/strategy-code/alliance"
-	log.Printf("Creating alliance...")
-	allianceName := gameName + fmt.Sprintf("%d", allianceUUID)
-
-	term := tfc.NewArgsBuilder().
-		WithTradeArgs(tfcPb.Player_GREEN, tfcPb.Player_BLUE, tfcPb.Resource_FOREST, 3).
-		Args()
-	ad := &tfcPb.AllianceData{
-		Lifespan:       1,
-		StartGameState: tfcPb.GameState_RTRADE,
-		Terms:          []*tfcPb.GameContractTrxArgs{term},
-		ContractID:     allianceUUID,
-	}
-
-	protoData, err := proto.Marshal(ad)
-	if err != nil {
-		return err
-	}
-
-	log.Printf("Installing the alliance chaincode...")
-	err = deployChaincode(allianceCCPath, allianceName, gameName, allies, [][]byte{[]byte{}, protoData})
-	if err != nil {
-		return err
-	}
-
-	for _, a := range allies {
-		registerCCListener(a, allianceName, allianceUUID)
-	}
-
-	return nil
 }
