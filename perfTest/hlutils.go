@@ -12,7 +12,6 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/hyperledger/fabric-sdk-go/pkg/client/channel"
-	"github.com/hyperledger/fabric-sdk-go/pkg/client/event"
 	"github.com/hyperledger/fabric-sdk-go/pkg/client/resmgmt"
 	"github.com/hyperledger/fabric-sdk-go/pkg/common/errors/retry"
 	"github.com/hyperledger/fabric-sdk-go/pkg/common/providers/msp"
@@ -186,7 +185,7 @@ func startGame(players []*TFCClient, chanCfg, ccPath, chanName string) error {
 		}
 	}
 
-	return nil //deployChaincode(ccPath, chanName, chanName, players, [][]byte{})
+	return deployChaincode(ccPath, chanName, chanName, players, [][]byte{})
 }
 
 func getSignatures(players []*TFCClient) []msp.SigningIdentity {
@@ -321,13 +320,6 @@ func updateChannelClient(p *TFCClient, gameName string) error {
 
 	p.ChannelClient = chanClient
 
-	eventClient, err := event.New(clientChannelContext, event.WithBlockEvents())
-	if err != nil {
-		return fmt.Errorf("could not get channel client: %s", err)
-	}
-
-	p.EventClient = eventClient
-
 	return nil
 }
 
@@ -337,9 +329,11 @@ func runChaincode(players []*TFCClient, ccReq resmgmt.InstallCCRequest,
 
 	for _, player := range players {
 		orgResMgmt := player.ResMgmt
-		log.Printf("Installing chaincode %s for %s channel: %s", ccReq.Name, player.OrgID, chanName)
+		log.Printf("Installing chaincode %s for %s on channel %s",
+			ccReq.Name, player.OrgID, chanName)
 		_, err := orgResMgmt.InstallCC(ccReq,
-			resmgmt.WithRetry(retry.DefaultResMgmtOpts))
+			resmgmt.WithRetry(retry.DefaultResMgmtOpts),
+			resmgmt.WithTargetEndpoints(player.PeerEndpoint))
 		if err != nil {
 			return fmt.Errorf("failed to install cc: %s", err)
 		}
@@ -349,6 +343,12 @@ func runChaincode(players []*TFCClient, ccReq resmgmt.InstallCCRequest,
 	log.Printf("Instantiating chaincode %s for %s on channel %s with policy %s",
 		ccReq.Name, p1.OrgID, chanName, ccPolicy)
 	// Org resource manager will instantiate 'example_cc' on channel
+
+	teps := make([]string, len(players))
+	for i, p := range players {
+		teps[i] = p.PeerEndpoint
+	}
+
 	_, err := p1.ResMgmt.InstantiateCC(
 		chanName,
 		resmgmt.InstantiateCCRequest{
@@ -359,6 +359,7 @@ func runChaincode(players []*TFCClient, ccReq resmgmt.InstallCCRequest,
 			Policy:  ccPolicy,
 		},
 		resmgmt.WithRetry(retry.DefaultResMgmtOpts),
+		resmgmt.WithTargetEndpoints(teps...),
 	)
 
 	if err != nil {

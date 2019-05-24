@@ -29,7 +29,7 @@ import (
 */
 
 func TestE2E(t *testing.T) {
-	runName := "tfc977"
+	runName := "t2"
 
 	promeShutdown := startProme()
 	defer promeShutdown()
@@ -39,7 +39,7 @@ func TestE2E(t *testing.T) {
 	orgsOut := make(chan ([]string), 10)
 
 	orgsIn <- []string{Player1, Player2, Player3}
-	go execTFCGameAsync(runName, respChan, orgsIn, orgsOut)
+	execTFCGameAsync(runName, respChan, orgsIn, orgsOut)
 	<-orgsOut
 
 	<-respChan

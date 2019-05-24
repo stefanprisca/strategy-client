@@ -8,7 +8,6 @@ import (
 
 	"github.com/go-kit/kit/metrics/prometheus"
 	"github.com/hyperledger/fabric-sdk-go/pkg/client/channel"
-	"github.com/hyperledger/fabric-sdk-go/pkg/client/event"
 	"github.com/hyperledger/fabric-sdk-go/pkg/client/resmgmt"
 	"github.com/hyperledger/fabric-sdk-go/pkg/common/providers/context"
 	"github.com/hyperledger/fabric-sdk-go/pkg/common/providers/msp"
@@ -38,7 +37,6 @@ type TFCClient struct {
 	Endorser             string
 	SDK                  *fabsdk.FabricSDK
 	ChannelClient        *channel.Client
-	EventClient          *event.Client
 	GameObservers        []*GameObserver
 	Metrics              *prometheus.Histogram
 }
@@ -102,7 +100,6 @@ func NewTFCClient(fabCfgPath, clientCfgPath, org, gameName string) (*TFCClient, 
 		Endorser:             org + "MSP.peer",
 		SDK:                  sdk,
 		ChannelClient:        nil,
-		EventClient:          nil,
 		GameObservers:        observers,
 		Metrics:              nil,
 	}

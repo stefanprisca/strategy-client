@@ -43,21 +43,21 @@ func scriptTFC1(p1, p2, p3 *TFCClient) []scriptStep {
 		{message: tfcCC.NewArgsBuilder().WithJoinArgs(p1C).Args(), player: p1},
 		{message: tfcCC.NewArgsBuilder().WithJoinArgs(p2C).Args(), player: p2},
 		{message: tfcCC.NewArgsBuilder().WithJoinArgs(p3C).Args(), player: p3},
-		{message: tfcCC.NewArgsBuilder().WithRollArgs().Args(), player: p1},
-		{message: tfcCC.NewArgsBuilder().WithTradeArgs(p1C, p2C, tfcPb.Resource_CAMP, 2).Args(), player: p1},
-		{message: tfcCC.NewArgsBuilder().WithTradeArgs(p1C, p3C, tfcPb.Resource_HILL, -2).Args(), player: p1},
-		{message: tfcCC.NewArgsBuilder().WithNextArgs().Args(), player: p1},
-		{message: tfcCC.NewArgsBuilder().WithNextArgs().Args(), player: p1},
-		{message: tfcCC.NewArgsBuilder().WithRollArgs().Args(), player: p2},
-		{message: tfcCC.NewArgsBuilder().WithTradeArgs(p2C, p1C, tfcPb.Resource_CAMP, 2).Args(), player: p2},
-		{message: tfcCC.NewArgsBuilder().WithTradeArgs(p2C, p3C, tfcPb.Resource_PASTURE, -2).Args(), player: p2},
-		{message: tfcCC.NewArgsBuilder().WithNextArgs().Args(), player: p2},
-		{message: tfcCC.NewArgsBuilder().WithNextArgs().Args(), player: p2},
-		{message: tfcCC.NewArgsBuilder().WithRollArgs().Args(), player: p3},
-		{message: tfcCC.NewArgsBuilder().WithTradeArgs(p3C, p1C, tfcPb.Resource_HILL, -2).Args(), player: p3},
-		{message: tfcCC.NewArgsBuilder().WithTradeArgs(p3C, p2C, tfcPb.Resource_PASTURE, -2).Args(), player: p3},
-		{message: tfcCC.NewArgsBuilder().WithNextArgs().Args(), player: p3},
-		{message: tfcCC.NewArgsBuilder().WithNextArgs().Args(), player: p3},
+		// {message: tfcCC.NewArgsBuilder().WithRollArgs().Args(), player: p1},
+		// {message: tfcCC.NewArgsBuilder().WithTradeArgs(p1C, p2C, tfcPb.Resource_CAMP, 2).Args(), player: p1},
+		// {message: tfcCC.NewArgsBuilder().WithTradeArgs(p1C, p3C, tfcPb.Resource_HILL, -2).Args(), player: p1},
+		// {message: tfcCC.NewArgsBuilder().WithNextArgs().Args(), player: p1},
+		// {message: tfcCC.NewArgsBuilder().WithNextArgs().Args(), player: p1},
+		// {message: tfcCC.NewArgsBuilder().WithRollArgs().Args(), player: p2},
+		// {message: tfcCC.NewArgsBuilder().WithTradeArgs(p2C, p1C, tfcPb.Resource_CAMP, 2).Args(), player: p2},
+		// {message: tfcCC.NewArgsBuilder().WithTradeArgs(p2C, p3C, tfcPb.Resource_PASTURE, -2).Args(), player: p2},
+		// {message: tfcCC.NewArgsBuilder().WithNextArgs().Args(), player: p2},
+		// {message: tfcCC.NewArgsBuilder().WithNextArgs().Args(), player: p2},
+		// {message: tfcCC.NewArgsBuilder().WithRollArgs().Args(), player: p3},
+		// {message: tfcCC.NewArgsBuilder().WithTradeArgs(p3C, p1C, tfcPb.Resource_HILL, -2).Args(), player: p3},
+		// {message: tfcCC.NewArgsBuilder().WithTradeArgs(p3C, p2C, tfcPb.Resource_PASTURE, -2).Args(), player: p3},
+		// {message: tfcCC.NewArgsBuilder().WithNextArgs().Args(), player: p3},
+		// {message: tfcCC.NewArgsBuilder().WithNextArgs().Args(), player: p3},
 	}
 
 	// for i := 0; i < 5; i++ {
@@ -171,23 +171,22 @@ func execTFCGameAsync(gameName string, respChan chan (bool), orgsIn chan ([]stri
 	defer closePlayers(players)
 	tfcScript := scriptTFC1(players[0], players[1], players[2])
 	// tfcScriptP1 := tfcScript[:8]
-	tfcScriptP2 := tfcScript[8:]
+	// tfcScriptP2 := tfcScript[8:]
 
 	// _, err = runGameScript(tfcScriptP1, gameName, players, "TFC")
 	// if err != nil {
 	// 	panic(err)
 	// }
 
-	allianceCCPath := "github.com/stefanprisca/strategy-code/cmd/alliance"
 	allies := []*TFCClient{players[1], players[2]}
 	allianceUUID := uint32(10012)
 
-	err = makeAlliance(allianceCCPath, gameName, allianceUUID, allies)
+	err = makeAlliance(gameName, allianceUUID, allies)
 	if err != nil {
 		panic(err)
 	}
 
-	_, err = runGameScript(tfcScriptP2, gameName, players, "TFC")
+	_, err = runGameScript(tfcScript, gameName, players, "TFC")
 	if err != nil {
 		panic(err)
 	}
@@ -249,13 +248,14 @@ func invokeAndMeasure(player *TFCClient, chanName string, trxArgs []byte, ccName
 	return r, nil
 }
 
-func makeAlliance(allianceCCPath, gameName string, allianceUUID uint32, allies []*TFCClient) error {
+func makeAlliance(gameName string, allianceUUID uint32, allies []*TFCClient) error {
 
+	allianceCCPath := "github.com/stefanprisca/strategy-code/alliance"
 	log.Printf("Creating alliance...")
 	allianceName := gameName + fmt.Sprintf("%d", allianceUUID)
 
 	term := tfc.NewArgsBuilder().
-		WithTradeArgs(tfcPb.Player_RED, tfcPb.Player_GREEN, tfcPb.Resource_FOREST, 3).
+		WithTradeArgs(tfcPb.Player_GREEN, tfcPb.Player_BLUE, tfcPb.Resource_FOREST, 3).
 		Args()
 	ad := &tfcPb.AllianceData{
 		Lifespan:       1,
