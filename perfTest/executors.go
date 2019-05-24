@@ -2,6 +2,7 @@ package tfc
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"math/rand"
 	"strconv"
@@ -235,11 +236,14 @@ func runGameScript(script []scriptStep, chanName string, players []*TFCClient, c
 			return responses, err
 		}
 
+		ms := rand.Intn(2000) + 500
+		stepInterval, _ := time.ParseDuration(fmt.Sprintf("%vms", ms))
+		time.Sleep(stepInterval)
+
 		r, err := invokeAndMeasure(player, chanName, trxArgs, ccName)
 
 		if err != nil {
 			log.Println(err.Error())
-			i--
 			continue
 		}
 

@@ -57,7 +57,7 @@ func TestGoroutinesStatic(t *testing.T) {
 }
 
 func TestGoroutinesIncremental(t *testing.T) {
-	testName := "testgri2nc"
+	testName := "tinc"
 	rand.Seed(time.Now().Unix())
 	testName += strconv.Itoa(rand.Int())
 	promeShutdown := startProme()
