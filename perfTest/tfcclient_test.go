@@ -14,6 +14,7 @@
 package tfc
 
 import (
+	"fmt"
 	"log"
 	"math/rand"
 	"strconv"
@@ -28,17 +29,29 @@ import (
 	3) Play a game
 */
 
+var playerPairs = [][]string{
+	{Player1, Player2, Player3},
+	{Player3, Player5, Player4},
+	{Player4, Player1, Player2},
+	{Player2, Player3, Player5},
+	{Player5, Player4, Player1},
+	{Player2, Player3, Player1},
+	{Player3, Player5, Player2},
+	{Player5, Player1, Player4},
+}
+
 func TestE2E(t *testing.T) {
-	runName := "te1232"
+	runName := "te12328"
 
 	promeShutdown := startProme()
 	defer promeShutdown()
 
-	respChan := make(chan (bool), 10)
+	respChan := make(chan (error), 10)
 	orgsIn := make(chan ([]string), 10)
 	orgsOut := make(chan ([]string), 10)
 
 	orgsIn <- []string{Player1, Player2, Player3}
+
 	execTFCGameAsync(runName, respChan, orgsIn, orgsOut)
 	<-orgsOut
 
@@ -48,49 +61,55 @@ func TestE2E(t *testing.T) {
 func TestGoroutinesStatic(t *testing.T) {
 	testName := "testgrinc"
 	rand.Seed(time.Now().Unix())
-	testName += strconv.Itoa(rand.Int())
+	testName += strconv.Itoa(rand.Int() % 100)
 
 	promeShutdown := startProme()
 	defer promeShutdown()
 
-	testWithRoutines(t, 8, testName, execTTTGameAsync)
+	testWithRoutines(t, 8, testName, execTFCGameAsync, playerPairs)
 }
 
 func TestGoroutinesIncremental(t *testing.T) {
-	testName := "tinc"
+	testName := "ti"
 	rand.Seed(time.Now().Unix())
-	testName += strconv.Itoa(rand.Int())
+	testName += strconv.Itoa(rand.Int() % 100)
 	promeShutdown := startProme()
 	defer promeShutdown()
 
-	nOfTfc := 3
-	tfcDone := make(chan (bool), nOfTfc)
-	go testWithRoutinesAsync(t, nOfTfc, "tfc"+testName, execTFCGameAsync, tfcDone)
+	testWithRoutines(t, 1, "tfc"+testName, execTFCGameAsync, playerPairs)
 
-	for nOfRoutines := 2; nOfRoutines < 32; nOfRoutines *= 2 {
-		runName := testName + strconv.Itoa(nOfRoutines)
-		testWithRoutines(t, nOfRoutines, "ttt"+runName, execTTTGameAsync)
+	for nOfRoutines := 2; nOfRoutines <= 32; nOfRoutines *= 2 {
+
+		nOfTFC := nOfRoutines/2 - 1
+		tfcDone := make(chan (bool), nOfTFC+1)
+		nOfTTT := nOfRoutines/2 + 1
+		tttDone := make(chan (bool), nOfTTT+1)
+
+		runName := fmt.Sprintf("%s%d", testName, nOfRoutines)
+		go testWithRoutinesAsync(t, nOfTFC, "tfc"+runName, execTFCGameAsync, playerPairs[:4], tfcDone)
+		go testWithRoutinesAsync(t, nOfTTT, "ttt"+runName, execTTTGameAsync, playerPairs[4:], tttDone)
+
+		log.Println("Waiting for TTT to be done....")
+		<-tttDone
+
+		log.Println("Waiting for TFC to be done....")
+		<-tfcDone
 	}
-
-	<-tfcDone
 }
 
-func testWithRoutinesAsync(t *testing.T, nOfRoutines int, runName string, asyncExec asyncExecutor, done chan (bool)) {
-	testWithRoutines(t, nOfRoutines, runName, asyncExec)
+func testWithRoutinesAsync(t *testing.T, nOfRoutines int, runName string, asyncExec asyncExecutor, playerPairs [][]string, done chan (bool)) {
+	testWithRoutines(t, nOfRoutines, runName, asyncExec, playerPairs)
 	done <- true
 }
 
-func testWithRoutines(t *testing.T, nOfRoutines int, runName string, asyncExec asyncExecutor) {
+func testWithRoutines(t *testing.T, nOfRoutines int, runName string, asyncExec asyncExecutor, playerPairs [][]string) {
 
-	playerPairs := [][]string{
-		{Player1, Player2, Player3},
-		{Player3, Player5, Player4},
-		{Player4, Player1, Player2},
-		{Player2, Player3, Player5},
-		{Player5, Player4, Player1},
+	if nOfRoutines == 0 {
+		return
 	}
-	respChan := make(chan (bool))
-	defer close(respChan)
+
+	errOutChan := make(chan (error))
+	defer close(errOutChan)
 	orgsIn := make(chan ([]string), len(playerPairs))
 	defer close(orgsIn)
 	orgsOut := make(chan ([]string), len(playerPairs)+1)
@@ -105,12 +124,12 @@ func testWithRoutines(t *testing.T, nOfRoutines int, runName string, asyncExec a
 
 	for i := 0; i < nOfRoutines; i++ {
 		gameName := runName + strconv.Itoa(i+1)
-		go asyncExec(gameName, respChan, orgsIn, orgsOut)
+		go asyncExec(gameName, errOutChan, orgsIn, orgsOut)
 		orgsIn <- (<-orgsOut)
 	}
 
 	for i := 0; i < nOfRoutines; i++ {
-		<-respChan
+		<-errOutChan
 	}
 
 	log.Printf(" ############# \n\t Finished goRoutine run *%s* . \n ##############",

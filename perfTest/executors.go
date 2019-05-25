@@ -16,7 +16,7 @@ import (
 	tttPb "github.com/stefanprisca/strategy-protobufs/tictactoe"
 )
 
-type asyncExecutor = func(gameName string, respChan chan (bool), orgsIn chan ([]string), orgsOut chan ([]string))
+type asyncExecutor = func(gameName string, respChan chan (error), orgsIn chan ([]string), orgsOut chan ([]string))
 
 type scriptStep struct {
 	message proto.Message
@@ -57,16 +57,18 @@ func scriptTFC1(p1, p2, p3 *TFCClient) ([]scriptStep, asyncAcriptAllianceGenerat
 		{message: tfcCC.NewArgsBuilder().WithRollArgs().Args(), player: p2},
 		{message: tfcCC.NewArgsBuilder().WithTradeArgs(p2C, p1C, tfcPb.Resource_HILL, 2).Args(), player: p2},
 		{message: tfcCC.NewArgsBuilder().WithTradeArgs(p2C, p3C, tfcPb.Resource_HILL, 2).Args(), player: p2},
+		{message: tfcCC.NewArgsBuilder().WithTradeArgs(p2C, p3C, tfcPb.Resource_FOREST, -2).Args(), player: p2},
 		{message: tfcCC.NewArgsBuilder().WithNextArgs().Args(), player: p2},
 		{message: tfcCC.NewArgsBuilder().WithNextArgs().Args(), player: p2},
 		{message: tfcCC.NewArgsBuilder().WithRollArgs().Args(), player: p3},
 		{message: tfcCC.NewArgsBuilder().WithTradeArgs(p3C, p1C, tfcPb.Resource_HILL, 2).Args(), player: p3},
 		{message: tfcCC.NewArgsBuilder().WithTradeArgs(p3C, p2C, tfcPb.Resource_HILL, 2).Args(), player: p3},
+		{message: tfcCC.NewArgsBuilder().WithTradeArgs(p3C, p2C, tfcPb.Resource_FOREST, -2).Args(), player: p2},
 		{message: tfcCC.NewArgsBuilder().WithNextArgs().Args(), player: p3},
 		{message: tfcCC.NewArgsBuilder().WithNextArgs().Args(), player: p3},
 	}
 
-	for i := 0; i < 5; i++ {
+	for i := 0; i < 2; i++ {
 		s = append(s, s[3:]...)
 	}
 
@@ -84,10 +86,6 @@ func scriptTFC1(p1, p2, p3 *TFCClient) ([]scriptStep, asyncAcriptAllianceGenerat
 			tfc.NewArgsBuilder().
 				WithTradeArgs(colors[a2.OrgID], colors[a1.OrgID], tfcPb.Resource_HILL, 2).
 				Args(),
-		}
-
-		for i := 0; i < 3; i++ {
-			terms = append(terms, terms...)
 		}
 
 		eOut <- makeAlliance(gameName, allianceUUID, allies, terms...)
@@ -160,7 +158,9 @@ func runScriptDRM(script []drmItem, chanName string, players []*TFCClient) ([]ch
 	return responses, nil
 }
 
-func execTTTGameAsync(gameName string, respChan chan (bool), orgsIn chan ([]string), orgsOut chan ([]string)) {
+func execTTTGameAsync(gameName string, errOut chan (error), orgsIn chan ([]string), orgsOut chan ([]string)) {
+
+	defer recordFailure()
 
 	ccPath := "github.com/stefanprisca/strategy-code/tictactoe"
 
@@ -169,6 +169,7 @@ func execTTTGameAsync(gameName string, respChan chan (bool), orgsIn chan ([]stri
 	orgsOut <- orgs
 
 	if err != nil {
+		errOut <- err
 		panic(err)
 	}
 
@@ -177,14 +178,17 @@ func execTTTGameAsync(gameName string, respChan chan (bool), orgsIn chan ([]stri
 	tttScript1 := scriptTTT1(players[0], players[1])
 	_, err = runGameScript(tttScript1, gameName, players, "TTT")
 	if err != nil {
+		errOut <- err
 		panic(err)
 	}
 	log.Printf("Finished running test.")
 
-	respChan <- true
+	errOut <- nil
 }
 
-func execTFCGameAsync(gameName string, respChan chan (bool), orgsIn chan ([]string), orgsOut chan ([]string)) {
+func execTFCGameAsync(gameName string, errOut chan (error), orgsIn chan ([]string), orgsOut chan ([]string)) {
+
+	defer recordFailure()
 
 	ccPath := "github.com/stefanprisca/strategy-code/cmd/tfc"
 
@@ -193,6 +197,7 @@ func execTFCGameAsync(gameName string, respChan chan (bool), orgsIn chan ([]stri
 	orgsOut <- orgs
 
 	if err != nil {
+		errOut <- err
 		panic(err)
 	}
 
@@ -202,9 +207,11 @@ func execTFCGameAsync(gameName string, respChan chan (bool), orgsIn chan ([]stri
 	allianceErrOut := make(chan (error), len(tfcScript))
 
 	j := 0
-	for i := 0; i < len(tfcScript); i += 20 {
+	stepSize := 12
+	for i := 0; i < len(tfcScript); i += stepSize {
 		_, err = runGameScript(tfcScript[j:i], gameName, players, "TFC")
 		if err != nil {
+			errOut <- err
 			panic(err)
 		}
 
@@ -214,15 +221,17 @@ func execTFCGameAsync(gameName string, respChan chan (bool), orgsIn chan ([]stri
 
 	log.Printf("Finished running test.")
 
-	select {
-	case err = <-allianceErrOut:
+	for ; j >= 0; j -= stepSize {
+		log.Printf("Waiting for alliances to create...%d", j)
+		err = <-allianceErrOut
 		if err != nil {
+
+			errOut <- err
 			panic(err)
 		}
-	default:
 	}
 
-	respChan <- true
+	errOut <- nil
 }
 
 func runGameScript(script []scriptStep, chanName string, players []*TFCClient, ccName string) ([]channel.Response, error) {
@@ -236,7 +245,7 @@ func runGameScript(script []scriptStep, chanName string, players []*TFCClient, c
 			return responses, err
 		}
 
-		ms := rand.Intn(2000) + 500
+		ms := rand.Intn(100) + 100
 		stepInterval, _ := time.ParseDuration(fmt.Sprintf("%vms", ms))
 		time.Sleep(stepInterval)
 

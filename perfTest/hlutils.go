@@ -415,7 +415,7 @@ func registerCCListener(player *TFCClient, ccName string, uuid uint32) *GameObse
 }
 
 func handleCCEventsAsync(player *TFCClient, gameObserver *GameObserver) {
-
+	defer recordFailure()
 	for {
 		select {
 		case <-gameObserver.Shutdown:
@@ -496,4 +496,16 @@ func invokeGameChaincode(player *TFCClient, ccName string, protoArgs []byte) (ch
 	}
 
 	return response, nil
+}
+
+func recordFailure() {
+
+	if r := recover(); r != nil {
+		fmt.Println("Recovered from ops failure", r)
+		GetPlayerMetrics().
+			With(CCLabel, "Operations").
+			With(CCFailedLabel, "True").
+			Observe(1)
+	}
+
 }
