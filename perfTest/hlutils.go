@@ -19,11 +19,10 @@ import (
 	"github.com/hyperledger/fabric-sdk-go/pkg/fab/resource"
 	"github.com/hyperledger/fabric-sdk-go/pkg/fabsdk"
 	"github.com/hyperledger/fabric-sdk-go/third_party/github.com/hyperledger/fabric/common/cauthdsl"
-	"github.com/hyperledger/fabric-sdk-go/third_party/github.com/hyperledger/fabric/protos/common"
 	tfcPb "github.com/stefanprisca/strategy-protobufs/tfc"
 )
 
-func bootstrapChannel(gameName string, chanOrgs []string, ccPath string) ([]*TFCClient, error) {
+func bootstrapChannel(gameName string, chanOrgs []string, ccReq resmgmt.InstantiateCCRequest) ([]*TFCClient, error) {
 
 	cfgPath, err := generateChannelArtifacts(gameName, chanOrgs)
 	if err != nil {
@@ -41,7 +40,7 @@ func bootstrapChannel(gameName string, chanOrgs []string, ccPath string) ([]*TFC
 	// ccPath := "github.com/stefanprisca/strategy-code/tictactoe"
 	// os.Setenv("GOPATH", "/home/stefan/workspace/hyperledger/caliper/packages/caliper-application")
 	//ccPath := "github.com/stefanprisca/strategy-code/tictactoe"
-	err = startGame(players, cfgPath, ccPath, gameName)
+	err = startGame(players, cfgPath, gameName, ccReq)
 	if err != nil {
 		return nil, err
 	}
@@ -158,7 +157,7 @@ func executeTemplate(filePath, tplName string, data interface{}) error {
 	return nil
 }
 
-func startGame(players []*TFCClient, chanCfg, ccPath, chanName string) error {
+func startGame(players []*TFCClient, chanCfg, chanName string, ccReq resmgmt.InstantiateCCRequest) error {
 	chanTxPath := path.Join(chanCfg, chanName+".tx")
 
 	// Create the game channel
@@ -186,7 +185,7 @@ func startGame(players []*TFCClient, chanCfg, ccPath, chanName string) error {
 		}
 	}
 
-	return deployChaincode(ccPath, chanName, chanName, players, [][]byte{})
+	return runChaincode(players, ccReq, chanName, [][]byte{})
 }
 
 func getSignatures(players []*TFCClient) []msp.SigningIdentity {
@@ -262,40 +261,38 @@ func updateAnchorPeers(player *TFCClient, chanName string) error {
 	return nil
 }
 
-func deployChaincode(ccPath, name, chanName string, players []*TFCClient,
-	initArgs [][]byte) error {
+func deployChaincode(ccPath, name string,
+	players []*TFCClient,
+	initArgs [][]byte) (*resmgmt.InstallCCRequest, error) {
 
 	ccPkg, err := createCC(ccPath)
 	if err != nil {
-		return fmt.Errorf("could not create cc package: %s", err)
+		return nil, fmt.Errorf("could not create cc package: %s", err)
 	}
 
 	// Install game chaincode to the peers
-	ccReq := resmgmt.InstallCCRequest{
+	ccReq := &resmgmt.InstallCCRequest{
 		Name:    name,
 		Path:    ccPath,
 		Version: "0.1.0",
 		Package: ccPkg}
 
-	endorsers := []string{}
-	for _, p := range players {
-		endorsers = append(endorsers, fmt.Sprintf("'%s'", p.Endorser))
-	}
-
-	ccPolicyString := fmt.Sprintf("OR(%s)", strings.Join(endorsers, ", "))
-
-	log.Printf("Created policy string: %s", ccPolicyString)
-
-	ccPolicy, err := cauthdsl.FromString(ccPolicyString)
 	if err != nil {
-		return fmt.Errorf("could not create cc policy: %s", err)
+		return nil, fmt.Errorf("could not create cc policy: %s", err)
 	}
 
-	err = runChaincode(players, ccReq, ccPolicy, chanName, initArgs)
-	if err != nil {
-		return fmt.Errorf("could not install cc: %s", err)
+	for _, player := range players {
+		orgResMgmt := player.ResMgmt
+		log.Printf("Installing chaincode %s for %s", ccReq.Name, player.OrgID)
+		_, err := orgResMgmt.InstallCC(*ccReq,
+			resmgmt.WithRetry(retry.DefaultResMgmtOpts),
+			resmgmt.WithTargetEndpoints(player.PeerEndpoint))
+		if err != nil {
+			return nil, fmt.Errorf("failed to install cc: %s", err)
+		}
 	}
-	return nil
+
+	return ccReq, nil
 }
 
 func createCC(ccPath string) (*resource.CCPackage, error) {
@@ -324,21 +321,21 @@ func updateChannelClient(p *TFCClient, gameName string) error {
 	return nil
 }
 
-func runChaincode(players []*TFCClient, ccReq resmgmt.InstallCCRequest,
-	ccPolicy *common.SignaturePolicyEnvelope, chanName string,
+func runChaincode(players []*TFCClient,
+	ccReq resmgmt.InstantiateCCRequest,
+	chanName string,
 	initArgs [][]byte) error {
 
-	for _, player := range players {
-		orgResMgmt := player.ResMgmt
-		log.Printf("Installing chaincode %s for %s on channel %s",
-			ccReq.Name, player.OrgID, chanName)
-		_, err := orgResMgmt.InstallCC(ccReq,
-			resmgmt.WithRetry(retry.DefaultResMgmtOpts),
-			resmgmt.WithTargetEndpoints(player.PeerEndpoint))
-		if err != nil {
-			return fmt.Errorf("failed to install cc: %s", err)
-		}
+	endorsers := []string{}
+	for _, p := range players {
+		endorsers = append(endorsers, fmt.Sprintf("'%s'", p.Endorser))
 	}
+
+	ccPolicyString := fmt.Sprintf("OR(%s)", strings.Join(endorsers, ", "))
+
+	log.Printf("Created policy string: %s", ccPolicyString)
+
+	ccPolicy, err := cauthdsl.FromString(ccPolicyString)
 
 	p1 := players[0]
 	log.Printf("Instantiating chaincode %s for %s on channel %s with policy %s",
@@ -350,7 +347,7 @@ func runChaincode(players []*TFCClient, ccReq resmgmt.InstallCCRequest,
 		teps[i] = p.PeerEndpoint
 	}
 
-	_, err := p1.ResMgmt.InstantiateCC(
+	_, err = p1.ResMgmt.InstantiateCC(
 		chanName,
 		resmgmt.InstantiateCCRequest{
 			Name:    ccReq.Name,
@@ -372,33 +369,33 @@ func runChaincode(players []*TFCClient, ccReq resmgmt.InstallCCRequest,
 
 func makeAlliance(gameName string, allianceUUID uint32, allies []*TFCClient, terms ...*tfcPb.GameContractTrxArgs) error {
 
-	allianceCCPath := "github.com/stefanprisca/strategy-code/alliance"
-	log.Printf("Creating alliance...")
-	allianceName := gameName + fmt.Sprintf("%d", allianceUUID)
+	// allianceCCPath := "github.com/stefanprisca/strategy-code/alliance"
+	// log.Printf("Creating alliance...")
+	// allianceName := gameName + fmt.Sprintf("%d", allianceUUID)
 
-	ad := &tfcPb.AllianceData{
-		Lifespan:       3,
-		StartGameState: tfcPb.GameState_RTRADE,
-		Terms:          terms,
-		ContractID:     allianceUUID,
-	}
+	// ad := &tfcPb.AllianceData{
+	// 	Lifespan:       3,
+	// 	StartGameState: tfcPb.GameState_RTRADE,
+	// 	Terms:          terms,
+	// 	ContractID:     allianceUUID,
+	// }
 
-	protoData, err := proto.Marshal(ad)
-	if err != nil {
-		return err
-	}
+	// protoData, err := proto.Marshal(ad)
+	// if err != nil {
+	// 	return err
+	// }
 
 	log.Printf("Installing the alliance chaincode...")
-	err = deployChaincode(allianceCCPath, allianceName, gameName, allies, [][]byte{[]byte{}, protoData})
-	if err != nil {
-		return err
-	}
+	// err = runChaincode(allianceCCPath, allianceName, gameName, allies, [][]byte{[]byte{}, protoData})
+	// if err != nil {
+	// 	return err
+	// }
 
-	obs := registerCCListener(allies[0], allianceName, allianceUUID)
+	// obs := registerCCListener(allies[0], allianceName, allianceUUID)
 
-	for _, a := range allies[1:] {
-		a.GameObservers = append(a.GameObservers, obs)
-	}
+	// for _, a := range allies[1:] {
+	// 	a.GameObservers = append(a.GameObservers, obs)
+	// }
 
 	return nil
 }
@@ -430,7 +427,7 @@ func handleCCEventsAsync(player *TFCClient, gameObserver *GameObserver) {
 				panic(err)
 			}
 
-			r, err := invokeAndMeasure(player, gameObserver.Name, protoData, "Alliance")
+			r, err := invokeAndMeasure(player, "alliance", protoData)
 			if err != nil {
 				panic(err)
 			}
@@ -458,7 +455,7 @@ func handleCCEventsAsync(player *TFCClient, gameObserver *GameObserver) {
 
 }
 
-func invokeAndMeasure(player *TFCClient, ccName string, trxArgs []byte, ccLabel string) (channel.Response, error) {
+func invokeAndMeasure(player *TFCClient, ccName string, trxArgs []byte) (channel.Response, error) {
 
 	st := time.Now()
 	r, err := invokeGameChaincode(player, ccName, trxArgs)
@@ -466,14 +463,14 @@ func invokeAndMeasure(player *TFCClient, ccName string, trxArgs []byte, ccLabel 
 
 	if err != nil {
 		player.Metrics.
-			With(CCLabel, ccLabel).
+			With(CCLabel, ccName).
 			With(CCFailedLabel, "True").
 			Observe(rt)
 		return r, err
 	}
 
 	player.Metrics.
-		With(CCLabel, ccLabel).
+		With(CCLabel, ccName).
 		With(CCFailedLabel, "False").
 		Observe(rt)
 
@@ -482,7 +479,7 @@ func invokeAndMeasure(player *TFCClient, ccName string, trxArgs []byte, ccLabel 
 
 func invokeGameChaincode(player *TFCClient, ccName string, protoArgs []byte) (channel.Response, error) {
 
-	log.Printf("Invoking game chaincode for client %v on channel %s", player, ccName)
+	log.Printf("Invoking game chaincode for client %v", player)
 
 	response, err := player.ChannelClient.Execute(
 		channel.Request{

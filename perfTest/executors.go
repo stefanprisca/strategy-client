@@ -8,6 +8,8 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/hyperledger/fabric-sdk-go/pkg/client/resmgmt"
+
 	"github.com/gogo/protobuf/proto"
 	"github.com/hyperledger/fabric-sdk-go/pkg/client/channel"
 	"github.com/stefanprisca/strategy-code/tfc"
@@ -120,14 +122,19 @@ func scriptDRM() []drmItem {
 
 func execDRMAsync(gameName string, respChan chan (bool), orgsIn chan ([]string), orgsOut chan ([]string)) {
 
-	ccPath := "contract/fabric/drm"
+	ccReq := resmgmt.InstantiateCCRequest{
+		Name:    "drm",
+		Path:    "contract/fabric/drm",
+		Version: "1.0",
+	}
+
 	orgs := <-orgsIn
-	players, err := bootstrapChannel(gameName, orgs[:2], ccPath)
+	players, err := bootstrapChannel(gameName, orgs[:2], ccReq)
 	orgsOut <- orgs
 	defer closePlayers(players)
 
 	tttScript1 := scriptDRM()
-	_, err = runScriptDRM(tttScript1, gameName, players)
+	_, err = runScriptDRM(tttScript1, "drm", players)
 	if err != nil {
 		panic(err)
 	}
@@ -137,7 +144,7 @@ func execDRMAsync(gameName string, respChan chan (bool), orgsIn chan ([]string),
 	respChan <- true
 }
 
-func runScriptDRM(script []drmItem, chanName string, players []*TFCClient) ([]channel.Response, error) {
+func runScriptDRM(script []drmItem, ccName string, players []*TFCClient) ([]channel.Response, error) {
 	responses := make([]channel.Response, len(script))
 	for i := range script {
 		msg := script[i]
@@ -148,7 +155,7 @@ func runScriptDRM(script []drmItem, chanName string, players []*TFCClient) ([]ch
 		}
 
 		pID := i % len(players)
-		r, err := invokeAndMeasure(players[pID], chanName, trxArgs, "DRM")
+		r, err := invokeAndMeasure(players[pID], ccName, trxArgs)
 		if err != nil {
 			return responses, err
 		}
@@ -162,10 +169,14 @@ func execTTTGameAsync(gameName string, errOut chan (error), orgsIn chan ([]strin
 
 	defer recordFailure()
 
-	ccPath := "github.com/stefanprisca/strategy-code/tictactoe"
+	ccReq := resmgmt.InstantiateCCRequest{
+		Name:    "ttt",
+		Path:    "github.com/stefanprisca/strategy-code/tictactoe",
+		Version: "1.0",
+	}
 
 	orgs := <-orgsIn
-	players, err := bootstrapChannel(gameName, orgs[:2], ccPath)
+	players, err := bootstrapChannel(gameName, orgs[:2], ccReq)
 	orgsOut <- orgs
 
 	if err != nil {
@@ -176,7 +187,7 @@ func execTTTGameAsync(gameName string, errOut chan (error), orgsIn chan ([]strin
 	defer closePlayers(players)
 
 	tttScript1 := scriptTTT1(players[0], players[1])
-	_, err = runGameScript(tttScript1, gameName, players, "TTT")
+	_, err = runGameScript(tttScript1, "ttt", players)
 	if err != nil {
 		errOut <- err
 		panic(err)
@@ -190,10 +201,14 @@ func execTFCGameAsync(gameName string, errOut chan (error), orgsIn chan ([]strin
 
 	defer recordFailure()
 
-	ccPath := "github.com/stefanprisca/strategy-code/cmd/tfc"
+	ccReq := resmgmt.InstantiateCCRequest{
+		Name:    "tfc",
+		Path:    "github.com/stefanprisca/strategy-code/cmd/tfc",
+		Version: "1.0",
+	}
 
 	orgs := <-orgsIn
-	players, err := bootstrapChannel(gameName, orgs, ccPath)
+	players, err := bootstrapChannel(gameName, orgs, ccReq)
 	orgsOut <- orgs
 
 	if err != nil {
@@ -209,7 +224,7 @@ func execTFCGameAsync(gameName string, errOut chan (error), orgsIn chan ([]strin
 	j := 0
 	stepSize := 12
 	for i := 0; i < len(tfcScript); i += stepSize {
-		_, err = runGameScript(tfcScript[j:i], gameName, players, "TFC")
+		_, err = runGameScript(tfcScript[j:i], "tfc", players)
 		if err != nil {
 			errOut <- err
 			panic(err)
@@ -234,7 +249,7 @@ func execTFCGameAsync(gameName string, errOut chan (error), orgsIn chan ([]strin
 	errOut <- nil
 }
 
-func runGameScript(script []scriptStep, chanName string, players []*TFCClient, ccName string) ([]channel.Response, error) {
+func runGameScript(script []scriptStep, ccName string, players []*TFCClient) ([]channel.Response, error) {
 	responses := make([]channel.Response, len(script))
 	for i := 0; i < len(script); i++ {
 		msg := script[i].message
@@ -249,7 +264,7 @@ func runGameScript(script []scriptStep, chanName string, players []*TFCClient, c
 		stepInterval, _ := time.ParseDuration(fmt.Sprintf("%vms", ms))
 		time.Sleep(stepInterval)
 
-		r, err := invokeAndMeasure(player, chanName, trxArgs, ccName)
+		r, err := invokeAndMeasure(player, ccName, trxArgs)
 
 		if err != nil {
 			log.Println(err.Error())

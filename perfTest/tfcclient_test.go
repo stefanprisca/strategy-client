@@ -41,18 +41,20 @@ var playerPairs = [][]string{
 }
 
 func TestE2E(t *testing.T) {
-	runName := "te12328"
+	runName := "te12"
 
 	promeShutdown := startProme()
 	defer promeShutdown()
+
+	players := []string{Player1, Player2, Player3}
 
 	respChan := make(chan (error), 10)
 	orgsIn := make(chan ([]string), 10)
 	orgsOut := make(chan ([]string), 10)
 
-	orgsIn <- []string{Player1, Player2, Player3}
+	orgsIn <- players
 
-	execTFCGameAsync(runName, respChan, orgsIn, orgsOut)
+	execTTTGameAsync(runName, respChan, orgsIn, orgsOut)
 	<-orgsOut
 
 	<-respChan
