@@ -1,0 +1,334 @@
+<!doctype html>
+<html>
+<head>
+    <title>Caliper Report</title>
+    <meta charset="UTF-8"/>
+    <style type="text/css">
+        .left-column {
+            position: fixed;
+            width:20%;
+            border-radius: 5px;
+            background-color: #f2f2f2;
+            -webkit-border-radius: 5px;
+            -moz-border-radius: 5px;
+            -khtml-border-radius: 5px;
+        }
+        .right-column {
+            margin-left: 22%;
+            width:60%;
+        }
+        .left-column ul,h2 {
+            display: block;
+            margin: 10px;
+            padding: 0;
+            list-style: none;
+        }
+        .left-column ul{
+            border-top: 1px solid #d9d9d9;
+            font-size: 14px;
+        }
+        .left-column li{
+            margin-bottom: 5px;
+            color: #5e6b73;
+        }
+        .left-column h3 {
+            border-left: 5px solid #009a61;
+        }
+        .right-column>div {
+            border-top: 1px solid #d9d9d9;
+        }
+        .right-column table {
+            font-family: verdana,arial,sans-serif;
+            font-size:11px;
+            color:#333333;
+            border-width: 1px;
+            border-color: #666666;
+            border-collapse: collapse;
+            margin-bottom: 10px;
+        }
+        .right-column th {
+            border-width: 1px;
+            padding: 8px;
+            border-style: solid;
+            border-color: #666666;
+            background-color: #f2f2f2;
+        }
+        .right-column td {
+            border-width: 1px;
+            padding: 8px;
+            border-style: solid;
+            border-color: #666666;
+            background-color: #ffffff;
+        }
+        .tag {
+            display: inline-block;
+            margin-bottom: 10px;
+            padding: 5px 10px;
+            background-color: rgba(1,126,102,0.08);
+            font-family: verdana,arial,sans-serif;
+            font-size:11px;
+            color: #017E66;
+            text-align: center;
+            border-radius: 5px;
+            -webkit-border-radius: 5px;
+            -moz-border-radius: 5px;
+            -khtml-border-radius: 5px;
+        }
+        pre {
+            padding: 10px;
+            margin-bottom: 10px;
+            border-radius: 5px;
+            background-color: #f2f2f2;
+            -webkit-border-radius: 5px;
+            -moz-border-radius: 5px;
+            -khtml-border-radius: 5px;
+            overflow:auto;
+            max-height:300px;
+            font-size:12px;
+        }
+    </style>
+</head>
+<body>
+
+<main>
+    <div class="left-column">
+        <h2>Caliper Report</h2>
+        <ul>
+            <h3>&nbspBasic information</h3>
+            <li><strong>DLT: &nbsp</strong><span>fabric</span></li>
+            <li><strong>Benchmark: &nbsp</strong><span>smallbank</span></li>
+            <li><strong>Description: &nbsp</strong><span>This is smallbank benchmark for caliper</span></li>
+            <li><strong>Test Rounds: &nbsp</strong><span>2</span></li>
+            <li><a href="#benchmarkInfo">Details</a></li>
+        </ul>
+        <ul>
+            <h3>&nbspBenchmark results</h3>
+            <li><a href="#benchmarksummary">Summary</a></li>
+                <li><a href="#smallOperations">smallOperations</a></li>
+                <li><a href="#query">query</a></li>
+        </ul>
+        <ul>
+            <h3>&nbspSystem Under Test</h3>
+            <li><strong>Version: &nbsp</strong><span>1.4.0</span></li>
+            <li><strong>Size: &nbsp</strong><span>3 Players with 1 Peer</span></li>
+            <li><strong>Orderer: &nbsp</strong><span>Kafka</span></li>
+            <li><strong>Distribution: &nbsp</strong><span>Single Host</span></li>
+            <li><a href="#sutdetails">Details</a></li>
+        </ul>
+    </div>
+
+    <div class="right-column">
+        <div id="benchmarksummary">
+            <table>
+                <h3>Summary</h3>
+                <tr>
+                     <th>Test</th> <th>Name</th> <th>Succ</th> <th>Fail</th> <th>Send Rate</th> <th>Max Latency</th> <th>Min Latency</th> <th>Avg Latency</th> <th>Throughput</th>
+                </tr>
+
+                <tr>
+                     <td>1</td> <td>smallOperations</td> <td>500</td> <td>0</td> <td>20.0 tps</td> <td>0.65 s</td> <td>0.09 s</td> <td>0.35 s</td> <td>19.9 tps</td>
+                </tr>
+                <tr>
+                     <td>2</td> <td>query</td> <td>500</td> <td>0</td> <td>50.0 tps</td> <td>0.04 s</td> <td>0.01 s</td> <td>0.02 s</td> <td>49.9 tps</td>
+                </tr>
+            </table>
+        </div>
+        <div id="smallOperations">
+            <h3>smallOperations</h3>
+            <p></p>
+                <h3>round 0</h3>
+                <strong class="tag">performance metrics</strong>
+                <table>
+                    <tr>
+                         <th>Name</th> <th>Succ</th> <th>Fail</th> <th>Send Rate</th> <th>Max Latency</th> <th>Min Latency</th> <th>Avg Latency</th> <th>Throughput</th>
+                    </tr>
+                    <tr>
+                         <td>smallOperations</td> <td>500</td> <td>0</td> <td>20.0 tps</td> <td>0.65 s</td> <td>0.09 s</td> <td>0.35 s</td> <td>19.9 tps</td>
+                    </tr>
+                </table>
+                <strong class="tag">resource consumption</strong>
+                <table>
+                    <tr>
+                         <th>TYPE</th> <th>NAME</th> <th>Memory(max)</th> <th>Memory(avg)</th> <th>CPU(max)</th> <th>CPU(avg)</th> <th>Traffic In</th> <th>Traffic Out</th> <th>Disc Read</th> <th>Disc Write</th>
+                    </tr>
+                    <tr>
+                         <td>Docker</td> <td>dev-peer0.player1.tfc.com...nk-v0</td> <td>7.0MB</td> <td>6.8MB</td> <td>6.91%</td> <td>5.32%</td> <td>1.1MB</td> <td>707.9KB</td> <td>0B</td> <td>0B</td>
+                    </tr>
+                    <tr>
+                         <td>Docker</td> <td>dev-peer0.player3.tfc.com...nk-v0</td> <td>7.2MB</td> <td>6.9MB</td> <td>6.41%</td> <td>5.22%</td> <td>1.1MB</td> <td>704.7KB</td> <td>0B</td> <td>0B</td>
+                    </tr>
+                    <tr>
+                         <td>Docker</td> <td>dev-peer0.player2.tfc.com...nk-v0</td> <td>7.1MB</td> <td>7.0MB</td> <td>7.26%</td> <td>5.35%</td> <td>1.1MB</td> <td>711.0KB</td> <td>0B</td> <td>0B</td>
+                    </tr>
+                    <tr>
+                         <td>Docker</td> <td>cli</td> <td>2.5MB</td> <td>2.5MB</td> <td>0.00%</td> <td>0.00%</td> <td>729B</td> <td>0B</td> <td>0B</td> <td>0B</td>
+                    </tr>
+                    <tr>
+                         <td>Docker</td> <td>kafka.tfc.com</td> <td>338.4MB</td> <td>320.1MB</td> <td>30.83%</td> <td>18.72%</td> <td>2.7MB</td> <td>2.8MB</td> <td>0B</td> <td>40.0KB</td>
+                    </tr>
+                    <tr>
+                         <td>Docker</td> <td>peer0.player3.tfc.com</td> <td>113.5MB</td> <td>105.4MB</td> <td>31.84%</td> <td>23.79%</td> <td>4.1MB</td> <td>2.0MB</td> <td>0B</td> <td>7.9MB</td>
+                    </tr>
+                    <tr>
+                         <td>Docker</td> <td>peer0.player5.tfc.com</td> <td>38.4MB</td> <td>38.3MB</td> <td>3.20%</td> <td>2.73%</td> <td>729B</td> <td>0B</td> <td>0B</td> <td>0B</td>
+                    </tr>
+                    <tr>
+                         <td>Docker</td> <td>peer0.player2.tfc.com</td> <td>172.8MB</td> <td>163.0MB</td> <td>32.99%</td> <td>23.48%</td> <td>4.1MB</td> <td>2.0MB</td> <td>0B</td> <td>7.9MB</td>
+                    </tr>
+                    <tr>
+                         <td>Docker</td> <td>zookeeper.tfc.com</td> <td>38.0MB</td> <td>37.9MB</td> <td>0.33%</td> <td>0.14%</td> <td>2.6KB</td> <td>1.1KB</td> <td>0B</td> <td>0B</td>
+                    </tr>
+                    <tr>
+                         <td>Docker</td> <td>ca.player1.tfc.com</td> <td>8.8MB</td> <td>8.8MB</td> <td>0.00%</td> <td>0.00%</td> <td>813B</td> <td>0B</td> <td>0B</td> <td>0B</td>
+                    </tr>
+                    <tr>
+                         <td>Docker</td> <td>ca.player5.tfc.com</td> <td>8.5MB</td> <td>8.5MB</td> <td>0.00%</td> <td>0.00%</td> <td>729B</td> <td>0B</td> <td>0B</td> <td>0B</td>
+                    </tr>
+                    <tr>
+                         <td>Docker</td> <td>peer0.player4.tfc.com</td> <td>10.3MB</td> <td>10.2MB</td> <td>3.28%</td> <td>2.65%</td> <td>729B</td> <td>0B</td> <td>0B</td> <td>0B</td>
+                    </tr>
+                    <tr>
+                         <td>Docker</td> <td>orderer.tfc.com</td> <td>21.6MB</td> <td>19.5MB</td> <td>14.53%</td> <td>10.85%</td> <td>5.6MB</td> <td>10.7MB</td> <td>0B</td> <td>5.8MB</td>
+                    </tr>
+                    <tr>
+                         <td>Docker</td> <td>peer0.player1.tfc.com</td> <td>166.6MB</td> <td>156.8MB</td> <td>30.31%</td> <td>23.34%</td> <td>4.1MB</td> <td>1.9MB</td> <td>0B</td> <td>7.9MB</td>
+                    </tr>
+                    <tr>
+                         <td>Docker</td> <td>ca.player2.tfc.com</td> <td>11.7MB</td> <td>11.7MB</td> <td>14.23%</td> <td>1.09%</td> <td>813B</td> <td>0B</td> <td>0B</td> <td>0B</td>
+                    </tr>
+                    <tr>
+                         <td>Docker</td> <td>ca.player3.tfc.com</td> <td>8.9MB</td> <td>8.9MB</td> <td>21.48%</td> <td>1.65%</td> <td>813B</td> <td>0B</td> <td>0B</td> <td>0B</td>
+                    </tr>
+                    <tr>
+                         <td>Docker</td> <td>ca.player4.tfc.com</td> <td>8.7MB</td> <td>8.7MB</td> <td>0.00%</td> <td>0.00%</td> <td>813B</td> <td>0B</td> <td>0B</td> <td>0B</td>
+                    </tr>
+                </table>
+        </div>
+        <div id="query">
+            <h3>query</h3>
+            <p></p>
+                <h3>round 0</h3>
+                <strong class="tag">performance metrics</strong>
+                <table>
+                    <tr>
+                         <th>Name</th> <th>Succ</th> <th>Fail</th> <th>Send Rate</th> <th>Max Latency</th> <th>Min Latency</th> <th>Avg Latency</th> <th>Throughput</th>
+                    </tr>
+                    <tr>
+                         <td>query</td> <td>500</td> <td>0</td> <td>50.0 tps</td> <td>0.04 s</td> <td>0.01 s</td> <td>0.02 s</td> <td>49.9 tps</td>
+                    </tr>
+                </table>
+                <strong class="tag">resource consumption</strong>
+                <table>
+                    <tr>
+                         <th>TYPE</th> <th>NAME</th> <th>Memory(max)</th> <th>Memory(avg)</th> <th>CPU(max)</th> <th>CPU(avg)</th> <th>Traffic In</th> <th>Traffic Out</th> <th>Disc Read</th> <th>Disc Write</th>
+                    </tr>
+                    <tr>
+                         <td>Docker</td> <td>dev-peer0.player1.tfc.com...nk-v0</td> <td>7.1MB</td> <td>7.1MB</td> <td>10.58%</td> <td>7.72%</td> <td>955.9KB</td> <td>443.6KB</td> <td>0B</td> <td>0B</td>
+                    </tr>
+                    <tr>
+                         <td>Docker</td> <td>dev-peer0.player3.tfc.com...nk-v0</td> <td>7.3MB</td> <td>7.2MB</td> <td>10.84%</td> <td>7.83%</td> <td>958.5KB</td> <td>447.5KB</td> <td>0B</td> <td>0B</td>
+                    </tr>
+                    <tr>
+                         <td>Docker</td> <td>dev-peer0.player2.tfc.com...nk-v0</td> <td>7.5MB</td> <td>7.3MB</td> <td>10.80%</td> <td>8.10%</td> <td>957.8KB</td> <td>444.6KB</td> <td>0B</td> <td>0B</td>
+                    </tr>
+                    <tr>
+                         <td>Docker</td> <td>cli</td> <td>2.5MB</td> <td>2.5MB</td> <td>0.00%</td> <td>0.00%</td> <td>0B</td> <td>0B</td> <td>0B</td> <td>0B</td>
+                    </tr>
+                    <tr>
+                         <td>Docker</td> <td>kafka.tfc.com</td> <td>330.3MB</td> <td>330.2MB</td> <td>5.87%</td> <td>3.07%</td> <td>20.4KB</td> <td>31.9KB</td> <td>0B</td> <td>40.0KB</td>
+                    </tr>
+                    <tr>
+                         <td>Docker</td> <td>peer0.player3.tfc.com</td> <td>114.1MB</td> <td>113.8MB</td> <td>37.39%</td> <td>28.68%</td> <td>1.2MB</td> <td>1.7MB</td> <td>0B</td> <td>0B</td>
+                    </tr>
+                    <tr>
+                         <td>Docker</td> <td>peer0.player5.tfc.com</td> <td>38.5MB</td> <td>38.4MB</td> <td>3.33%</td> <td>2.90%</td> <td>0B</td> <td>0B</td> <td>0B</td> <td>0B</td>
+                    </tr>
+                    <tr>
+                         <td>Docker</td> <td>peer0.player2.tfc.com</td> <td>173.0MB</td> <td>172.9MB</td> <td>36.62%</td> <td>28.60%</td> <td>1.2MB</td> <td>1.7MB</td> <td>0B</td> <td>0B</td>
+                    </tr>
+                    <tr>
+                         <td>Docker</td> <td>zookeeper.tfc.com</td> <td>38.0MB</td> <td>38.0MB</td> <td>0.47%</td> <td>0.22%</td> <td>720B</td> <td>430B</td> <td>0B</td> <td>0B</td>
+                    </tr>
+                    <tr>
+                         <td>Docker</td> <td>ca.player1.tfc.com</td> <td>9.1MB</td> <td>9.0MB</td> <td>8.75%</td> <td>1.46%</td> <td>458B</td> <td>9.0KB</td> <td>0B</td> <td>248.0KB</td>
+                    </tr>
+                    <tr>
+                         <td>Docker</td> <td>ca.player5.tfc.com</td> <td>8.5MB</td> <td>8.5MB</td> <td>0.00%</td> <td>0.00%</td> <td>0B</td> <td>0B</td> <td>0B</td> <td>0B</td>
+                    </tr>
+                    <tr>
+                         <td>Docker</td> <td>peer0.player4.tfc.com</td> <td>10.3MB</td> <td>10.3MB</td> <td>3.68%</td> <td>2.99%</td> <td>0B</td> <td>0B</td> <td>0B</td> <td>0B</td>
+                    </tr>
+                    <tr>
+                         <td>Docker</td> <td>orderer.tfc.com</td> <td>21.6MB</td> <td>21.6MB</td> <td>0.97%</td> <td>0.81%</td> <td>31.2KB</td> <td>19.9KB</td> <td>0B</td> <td>0B</td>
+                    </tr>
+                    <tr>
+                         <td>Docker</td> <td>peer0.player1.tfc.com</td> <td>166.8MB</td> <td>166.7MB</td> <td>38.36%</td> <td>29.60%</td> <td>1.2MB</td> <td>2.0MB</td> <td>0B</td> <td>0B</td>
+                    </tr>
+                    <tr>
+                         <td>Docker</td> <td>ca.player2.tfc.com</td> <td>11.8MB</td> <td>11.8MB</td> <td>7.98%</td> <td>1.33%</td> <td>687B</td> <td>13.5KB</td> <td>0B</td> <td>360.0KB</td>
+                    </tr>
+                    <tr>
+                         <td>Docker</td> <td>ca.player3.tfc.com</td> <td>8.9MB</td> <td>8.9MB</td> <td>0.00%</td> <td>0.00%</td> <td>0B</td> <td>0B</td> <td>0B</td> <td>0B</td>
+                    </tr>
+                    <tr>
+                         <td>Docker</td> <td>ca.player4.tfc.com</td> <td>8.7MB</td> <td>8.7MB</td> <td>0.00%</td> <td>0.00%</td> <td>0B</td> <td>0B</td> <td>0B</td> <td>0B</td>
+                    </tr>
+                </table>
+        </div>
+        <div>
+            <h3>Test Environment</h3>
+            <strong class="tag">benchmark config</strong>
+            <pre id="benchmarkInfo" style="overflow: visible;white-space: pre-wrap;max-height:100%;">{
+  &quot;name&quot;: &quot;smallbank&quot;,
+  &quot;description&quot;: &quot;This is smallbank benchmark for caliper&quot;,
+  &quot;clients&quot;: {
+    &quot;type&quot;: &quot;local&quot;,
+    &quot;number&quot;: 5
+  },
+  &quot;rounds&quot;: [
+    {
+      &quot;label&quot;: &quot;smallOperations&quot;,
+      &quot;txNumber&quot;: [
+        500
+      ],
+      &quot;rateControl&quot;: [
+        {
+          &quot;type&quot;: &quot;fixed-rate&quot;,
+          &quot;opts&quot;: {
+            &quot;tps&quot;: 20
+          }
+        }
+      ],
+      &quot;arguments&quot;: {
+        &quot;accounts&quot;: 400,
+        &quot;txnPerBatch&quot;: 1
+      },
+      &quot;callback&quot;: &quot;benchmark&#x2F;smallbank&#x2F;smallbankOperations.js&quot;
+    },
+    {
+      &quot;label&quot;: &quot;query&quot;,
+      &quot;txNumber&quot;: [
+        500
+      ],
+      &quot;rateControl&quot;: [
+        {
+          &quot;type&quot;: &quot;fixed-rate&quot;,
+          &quot;opts&quot;: {
+            &quot;tps&quot;: 50
+          }
+        }
+      ],
+      &quot;callback&quot;: &quot;benchmark&#x2F;smallbank&#x2F;query.js&quot;
+    }
+  ]
+}</pre>
+            <strong class="tag">SUT</strong>
+            <pre id="sutdetails">not provided</pre>
+        </div>
+    </div>
+
+
+</main>
+
+</body>
+</html>

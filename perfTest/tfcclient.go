@@ -6,6 +6,7 @@ import (
 	"path"
 	"strings"
 
+	"github.com/go-kit/kit/metrics/prometheus"
 	"github.com/hyperledger/fabric-sdk-go/pkg/client/channel"
 	"github.com/hyperledger/fabric-sdk-go/pkg/client/resmgmt"
 	"github.com/hyperledger/fabric-sdk-go/pkg/common/providers/context"
@@ -15,7 +16,22 @@ import (
 	"github.com/hyperledger/fabric-sdk-go/pkg/fabsdk"
 
 	mspclient "github.com/hyperledger/fabric-sdk-go/pkg/client/msp"
+	tfcPb "github.com/stefanprisca/strategy-protobufs/tfc"
 )
+
+type GameObserver struct {
+	TrxComplete chan *tfcPb.TrxCompletedArgs
+	Shutdown    chan bool
+	Name        string
+	UUID        uint32
+	terminated  bool
+}
+
+func (gObs *GameObserver) Terminate() {
+	close(gObs.Shutdown)
+	close(gObs.TrxComplete)
+	gObs.terminated = true
+}
 
 // OrgContext provides SDK client context for a given org
 type TFCClient struct {
@@ -28,6 +44,8 @@ type TFCClient struct {
 	Endorser             string
 	SDK                  *fabsdk.FabricSDK
 	ChannelClient        *channel.Client
+	GameObservers        []*GameObserver
+	Metrics              *prometheus.Histogram
 }
 
 const (
@@ -77,6 +95,8 @@ func NewTFCClient(fabCfgPath, clientCfgPath, org, gameName string) (*TFCClient, 
 		return nil, fmt.Errorf("Failed to create new resource management client: %s", err)
 	}
 
+	observers := []*GameObserver{}
+
 	tfcClient := &TFCClient{
 		OrgID:                org,
 		CtxProvider:          adminContext,
@@ -87,6 +107,8 @@ func NewTFCClient(fabCfgPath, clientCfgPath, org, gameName string) (*TFCClient, 
 		Endorser:             org + "MSP.peer",
 		SDK:                  sdk,
 		ChannelClient:        nil,
+		GameObservers:        observers,
+		Metrics:              nil,
 	}
 
 	return tfcClient, nil

@@ -20,21 +20,6 @@ import (
 	"strconv"
 	"testing"
 	"time"
-
-	"gonum.org/v1/plot"
-	"gonum.org/v1/plot/plotter"
-	"gonum.org/v1/plot/plotutil"
-	"gonum.org/v1/plot/vg"
-
-	"github.com/golang/protobuf/proto"
-
-	//mspclient "github.com/hyperledger/fabric-sdk-go/pkg/client/msp"
-
-	"github.com/hyperledger/fabric-sdk-go/pkg/client/channel"
-	"github.com/stretchr/testify/require"
-
-	// "github.com/hyperledger/fabric-sdk-go/test/integration"
-	tttPb "github.com/stefanprisca/strategy-protobufs/tictactoe"
 )
 
 /*
@@ -44,187 +29,109 @@ import (
 	3) Play a game
 */
 
-type runtime struct {
-	timestamp int64
-	value     float64
-}
-
-type scriptStep struct {
-	message proto.Message
-	player  *TFCClient
-}
-
-func scriptTTT1(p1, p2 *TFCClient) []scriptStep {
-	return []scriptStep{
-		{message: &tttPb.TrxArgs{Type: tttPb.TrxType_MOVE, MovePayload: &tttPb.MoveTrxPayload{Position: 0, Mark: tttPb.Mark_X}}, player: p1},
-		{message: &tttPb.TrxArgs{Type: tttPb.TrxType_MOVE, MovePayload: &tttPb.MoveTrxPayload{Position: 1, Mark: tttPb.Mark_O}}, player: p2},
-		{message: &tttPb.TrxArgs{Type: tttPb.TrxType_MOVE, MovePayload: &tttPb.MoveTrxPayload{Position: 4, Mark: tttPb.Mark_X}}, player: p1},
-		{message: &tttPb.TrxArgs{Type: tttPb.TrxType_MOVE, MovePayload: &tttPb.MoveTrxPayload{Position: 8, Mark: tttPb.Mark_O}}, player: p2},
-		{message: &tttPb.TrxArgs{Type: tttPb.TrxType_MOVE, MovePayload: &tttPb.MoveTrxPayload{Position: 3, Mark: tttPb.Mark_X}}, player: p1},
-		{message: &tttPb.TrxArgs{Type: tttPb.TrxType_MOVE, MovePayload: &tttPb.MoveTrxPayload{Position: 5, Mark: tttPb.Mark_O}}, player: p2},
-		{message: &tttPb.TrxArgs{Type: tttPb.TrxType_MOVE, MovePayload: &tttPb.MoveTrxPayload{Position: 6, Mark: tttPb.Mark_X}}, player: p1},
-	}
+var playerPairs = [][]string{
+	{Player1, Player2, Player3},
+	{Player3, Player5, Player4},
+	{Player4, Player1, Player2},
+	{Player2, Player3, Player5},
+	{Player5, Player4, Player1},
+	{Player2, Player3, Player1},
+	{Player3, Player5, Player2},
+	{Player5, Player1, Player4},
 }
 
 func TestE2E(t *testing.T) {
-	runName := "te2e123"
-	res, err := execTTTGame(runName, []string{Player1, Player2})
-	require.NoError(t, err)
-	log.Println(res)
-	err = plotRuntimes(res, runName)
-	require.NoError(t, err)
+	runName := "te12328"
+
+	promeShutdown := startProme()
+	defer promeShutdown()
+
+	respChan := make(chan (error), 10)
+	orgsIn := make(chan ([]string), 10)
+	orgsOut := make(chan ([]string), 10)
+
+	orgsIn <- []string{Player1, Player2, Player3}
+
+	execTFCGameAsync(runName, respChan, orgsIn, orgsOut)
+	<-orgsOut
+
+	<-respChan
 }
 
 func TestGoroutinesStatic(t *testing.T) {
-	testWithRoutines(t, 4, "testfafa41")
+	testName := "testgrinc"
+	rand.Seed(time.Now().Unix())
+	testName += strconv.Itoa(rand.Int() % 100)
+
+	promeShutdown := startProme()
+	defer promeShutdown()
+
+	testWithRoutines(t, 8, testName, execTFCGameAsync, playerPairs)
 }
 
 func TestGoroutinesIncremental(t *testing.T) {
-	testName := "testgrinc1"
+	testName := "ti"
+	rand.Seed(time.Now().Unix())
+	testName += strconv.Itoa(rand.Int() % 100)
+	promeShutdown := startProme()
+	defer promeShutdown()
 
-	for nOfRoutines := 1; nOfRoutines < 10; nOfRoutines *= 2 {
-		runName := testName + strconv.Itoa(nOfRoutines)
-		testWithRoutines(t, nOfRoutines, runName)
+	testWithRoutines(t, 1, "tfc"+testName, execTFCGameAsync, playerPairs)
+
+	for nOfRoutines := 2; nOfRoutines <= 32; nOfRoutines *= 2 {
+
+		nOfTFC := nOfRoutines/2 - 1
+		tfcDone := make(chan (bool), nOfTFC+1)
+		nOfTTT := nOfRoutines/2 + 1
+		tttDone := make(chan (bool), nOfTTT+1)
+
+		runName := fmt.Sprintf("%s%d", testName, nOfRoutines)
+		go testWithRoutinesAsync(t, nOfTFC, "tfc"+runName, execTFCGameAsync, playerPairs[:4], tfcDone)
+		go testWithRoutinesAsync(t, nOfTTT, "ttt"+runName, execTTTGameAsync, playerPairs[4:], tttDone)
+
+		log.Println("Waiting for TTT to be done....")
+		<-tttDone
+
+		log.Println("Waiting for TFC to be done....")
+		<-tfcDone
 	}
 }
 
-func testWithRoutines(t *testing.T, nOfRoutines int, runName string) {
+func testWithRoutinesAsync(t *testing.T, nOfRoutines int, runName string, asyncExec asyncExecutor, playerPairs [][]string, done chan (bool)) {
+	testWithRoutines(t, nOfRoutines, runName, asyncExec, playerPairs)
+	done <- true
+}
 
-	respChan := make(chan ([]runtime))
+func testWithRoutines(t *testing.T, nOfRoutines int, runName string, asyncExec asyncExecutor, playerPairs [][]string) {
 
-	playerPairs := [][]string{
-		{Player1, Player2},
-		{Player3, Player5},
-		{Player4, Player1},
-		{Player2, Player3},
-		{Player1, Player4},
+	if nOfRoutines == 0 {
+		return
+	}
+
+	errOutChan := make(chan (error))
+	defer close(errOutChan)
+	orgsIn := make(chan ([]string), len(playerPairs))
+	defer close(orgsIn)
+	orgsOut := make(chan ([]string), len(playerPairs)+1)
+	defer close(orgsOut)
+
+	for _, pp := range playerPairs {
+		orgsIn <- pp
 	}
 
 	log.Printf(" ############# \n\t Starting goRoutine run *%s* with %v routines, and player set %v. \n ##############",
 		runName, nOfRoutines, playerPairs)
 
-	batchSize := 1
-	batchInterval, err := time.ParseDuration("10s")
-	require.NoError(t, err)
-
-	for i := 0; i < nOfRoutines; i += batchSize {
-		for j := i; j < i+batchSize; j++ {
-			ppI := j % len(playerPairs)
-			gameName := runName + strconv.Itoa(j+1)
-			go execTTTGameAsync(gameName, respChan, playerPairs[ppI])
-		}
-		time.Sleep(batchInterval)
-	}
-
-	perfResults := [][]runtime{}
 	for i := 0; i < nOfRoutines; i++ {
-		rts := <-respChan
-		perfResults = append(perfResults, rts)
+		gameName := runName + strconv.Itoa(i+1)
+		go asyncExec(gameName, errOutChan, orgsIn, orgsOut)
+		orgsIn <- (<-orgsOut)
 	}
 
-	flatRts := flattenRts(perfResults)
-	log.Printf(" ############# \n\t Finished goRoutine run *%s* with runtime results %v. \n ##############",
-		runName, flatRts)
-
-	plotRuntimes(flatRts, runName)
-}
-
-func execTTTGameAsync(gameName string, respChan chan ([]runtime), chanOrgs []string) {
-	res, err := execTTTGame(gameName, chanOrgs)
-	respChan <- res
-
-	if err != nil {
-		panic(err)
-	}
-}
-
-func execTTTGame(gameName string, chanOrgs []string) ([]runtime, error) {
-
-	perfResult := []runtime{}
-
-	cfgPath, err := generateChannelArtifacts(gameName, chanOrgs)
-	if err != nil {
-		return perfResult, err
+	for i := 0; i < nOfRoutines; i++ {
+		<-errOutChan
 	}
 
-	players, err := generatePlayers(cfgPath, chanOrgs, gameName)
-	if err != nil {
-		return perfResult, err
-	}
-	defer closePlayers(players)
-
-	ccPath := "github.com/stefanprisca/strategy-code/tictactoe"
-	err = startGame(players, cfgPath, ccPath, gameName)
-	if err != nil {
-		return perfResult, err
-	}
-
-	tttScript1 := scriptTTT1(players[0], players[1])
-	_, perfResult, err = runScript(tttScript1, gameName)
-	if err != nil {
-		return perfResult, err
-	}
-
-	log.Print("Finished running TTT game.")
-	return perfResult, nil
-}
-
-func runScript(script []scriptStep, chanName string) ([]channel.Response, []runtime, error) {
-	responses := make([]channel.Response, len(script))
-	rts := make([]runtime, len(script))
-	for i := range script {
-		msg := script[i].message
-		player := script[i].player
-		log.Printf("Executing script step %v", msg)
-		trxArgs, err := proto.Marshal(msg)
-		if err != nil {
-			return responses, rts, err
-		}
-
-		st := time.Now()
-		r, err := invokeGameChaincode(player, chanName, trxArgs)
-		rt := time.Since(st).Seconds()
-
-		rts[i] = runtime{timestamp: st.Unix(), value: rt}
-		responses[i] = r
-
-		ms := rand.Intn(1000) + 500
-		stepInterval, _ := time.ParseDuration(fmt.Sprintf("%vms", ms))
-		time.Sleep(stepInterval)
-		if err != nil {
-			return responses, rts, err
-		}
-	}
-
-	return responses, rts, nil
-}
-
-func flattenRts(runtimes [][]runtime) []runtime {
-	result := []runtime{}
-	for _, rts := range runtimes {
-		result = append(result, rts...)
-	}
-	return result
-}
-
-func plotRuntimes(rts []runtime, name string) error {
-	p, err := plot.New()
-	if err != nil {
-		return err
-
-	}
-	xys := make(plotter.XYs, len(rts))
-
-	for i, r := range rts {
-		xys[i].X = float64(r.timestamp)
-		xys[i].Y = r.value
-	}
-
-	err = plotutil.AddScatters(p, xys)
-	if err != nil {
-		return err
-
-	}
-
-	return p.Save(4*vg.Inch, 4*vg.Inch, "plots/"+name+".png")
+	log.Printf(" ############# \n\t Finished goRoutine run *%s* . \n ##############",
+		runName)
 }
