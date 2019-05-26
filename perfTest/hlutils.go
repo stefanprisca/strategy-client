@@ -367,47 +367,54 @@ func runChaincode(players []*TFCClient,
 	return err
 }
 
-func makeAlliance(gameName string, allianceUUID uint32, allies []*TFCClient, terms ...*tfcPb.GameContractTrxArgs) error {
+func makeAlliance(gameName string, allianceUUID uint32, allies []*ally, terms ...*tfcPb.GameContractTrxArgs) error {
 
 	// allianceCCPath := "github.com/stefanprisca/strategy-code/alliance"
-	// log.Printf("Creating alliance...")
+	log.Printf("Creating alliance...")
 	// allianceName := gameName + fmt.Sprintf("%d", allianceUUID)
 
-	// ad := &tfcPb.AllianceData{
-	// 	Lifespan:       3,
-	// 	StartGameState: tfcPb.GameState_RTRADE,
-	// 	Terms:          terms,
-	// 	ContractID:     allianceUUID,
-	// }
+	ad := &tfcPb.AllianceData{
+		Lifespan:       3,
+		StartGameState: tfcPb.GameState_RTRADE,
+		Terms:          terms,
+		ContractID:     allianceUUID,
+		Allies:         []tfcPb.Player{allies[0].Color, allies[1].Color},
+	}
 
-	// protoData, err := proto.Marshal(ad)
-	// if err != nil {
-	// 	return err
-	// }
+	alliTrxArgs := &tfcPb.AllianceTrxArgs{
+		Type:        tfcPb.AllianceTrxType_INIT,
+		InitPayload: ad,
+	}
+
+	protoData, err := proto.Marshal(alliTrxArgs)
+	if err != nil {
+		return err
+	}
 
 	log.Printf("Installing the alliance chaincode...")
-	// err = runChaincode(allianceCCPath, allianceName, gameName, allies, [][]byte{[]byte{}, protoData})
-	// if err != nil {
-	// 	return err
-	// }
 
-	// obs := registerCCListener(allies[0], allianceName, allianceUUID)
+	_, err = invokeAndMeasure(allies[0].TFCClient, "alliance", protoData)
+	if err != nil {
+		return err
+	}
 
-	// for _, a := range allies[1:] {
-	// 	a.GameObservers = append(a.GameObservers, obs)
-	// }
+	registerCCListener(allies, *ad)
 
 	return nil
 }
 
-func registerCCListener(player *TFCClient, ccName string, uuid uint32) *GameObserver {
+func registerCCListener(allies []*ally, alliData tfcPb.AllianceData) *GameObserver {
 
 	shutdown := make(chan bool, 100)
 	trxComplete := make(chan *tfcPb.TrxCompletedArgs, 100)
-	observer := &GameObserver{trxComplete, shutdown, ccName, uuid, false}
+	observer := &GameObserver{trxComplete, shutdown, "alliance", alliData, false}
 
-	go handleCCEventsAsync(player, observer)
-	player.GameObservers = append(player.GameObservers, observer)
+	go handleCCEventsAsync(allies[0].TFCClient, observer)
+
+	for _, a := range allies[1:] {
+		a.GameObservers = append(a.GameObservers, observer)
+	}
+
 	return observer
 }
 
@@ -422,7 +429,11 @@ func handleCCEventsAsync(player *TFCClient, gameObserver *GameObserver) {
 		case ev := <-gameObserver.TrxComplete:
 			log.Printf("received cc event...processing tx completed %v", ev)
 
-			protoData, err := proto.Marshal(ev)
+			alliTrxArgs := &tfcPb.AllianceTrxArgs{
+				Type:          tfcPb.AllianceTrxType_INVOKE,
+				InvokePayload: ev,
+			}
+			protoData, err := proto.Marshal(alliTrxArgs)
 			if err != nil {
 				panic(err)
 			}
@@ -479,7 +490,7 @@ func invokeAndMeasure(player *TFCClient, ccName string, trxArgs []byte) (channel
 
 func invokeGameChaincode(player *TFCClient, ccName string, protoArgs []byte) (channel.Response, error) {
 
-	log.Printf("Invoking game chaincode for client %v", player)
+	log.Printf("Invoking game chaincode %s for client %v", ccName, player)
 
 	response, err := player.ChannelClient.Execute(
 		channel.Request{

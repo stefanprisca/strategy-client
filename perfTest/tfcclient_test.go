@@ -41,7 +41,7 @@ var playerPairs = [][]string{
 }
 
 func TestE2E(t *testing.T) {
-	runName := "te12"
+	runName := "te41"
 
 	promeShutdown := startProme()
 	defer promeShutdown()
@@ -54,7 +54,7 @@ func TestE2E(t *testing.T) {
 
 	orgsIn <- players
 
-	execTTTGameAsync(runName, respChan, orgsIn, orgsOut)
+	execTFCGameAsync(runName, respChan, orgsIn, orgsOut)
 	<-orgsOut
 
 	<-respChan
@@ -68,11 +68,11 @@ func TestGoroutinesStatic(t *testing.T) {
 	promeShutdown := startProme()
 	defer promeShutdown()
 
-	testWithRoutines(t, 16, testName, execTTTGameAsync, playerPairs)
+	testWithRoutines(t, 16, testName, execTFCGameAsync, playerPairs)
 }
 
 func TestGoroutinesIncremental(t *testing.T) {
-	testName := "ti"
+	testName := "t"
 	rand.Seed(time.Now().Unix())
 	testName += strconv.Itoa(rand.Int() % 100)
 	promeShutdown := startProme()

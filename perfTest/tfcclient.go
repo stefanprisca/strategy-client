@@ -23,7 +23,7 @@ type GameObserver struct {
 	TrxComplete chan *tfcPb.TrxCompletedArgs
 	Shutdown    chan bool
 	Name        string
-	UUID        uint32
+	InitPayload tfcPb.AllianceData
 	terminated  bool
 }
 

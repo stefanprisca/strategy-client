@@ -39,6 +39,11 @@ func scriptTTT1(p1, p2 *TFCClient) []scriptStep {
 
 type asyncAcriptAllianceGenerator func(int, string, chan error)
 
+type ally struct {
+	*TFCClient
+	Color tfcPb.Player
+}
+
 func scriptTFC1(p1, p2, p3 *TFCClient) ([]scriptStep, asyncAcriptAllianceGenerator) {
 
 	p1C, p2C, p3C := tfcPb.Player_RED, tfcPb.Player_GREEN, tfcPb.Player_BLUE
@@ -78,7 +83,10 @@ func scriptTFC1(p1, p2, p3 *TFCClient) ([]scriptStep, asyncAcriptAllianceGenerat
 		a1 := s[i%3].player
 		a2 := s[(i+1)%3].player
 
-		allies := []*TFCClient{a1, a2}
+		allies := []*ally{
+			{a1, colors[a1.OrgID]},
+			{a2, colors[a2.OrgID]},
+		}
 		allianceUUID := uint32(100 + i)
 
 		terms := []*tfcPb.GameContractTrxArgs{
@@ -217,38 +225,53 @@ func execTFCGameAsync(gameName string, errOut chan (error), orgsIn chan ([]strin
 	}
 
 	defer closePlayers(players)
-	tfcScript, _ := scriptTFC1(players[0], players[1], players[2])
-	_, err = runGameScript(tfcScript, "tfc", players)
+
+	// Instantiate the alliance CC
+
+	ccReq = resmgmt.InstantiateCCRequest{
+		Name:    "alliance",
+		Path:    "github.com/stefanprisca/strategy-code/cmd/alliance",
+		Version: "1.0",
+	}
+	err = runChaincode(players, ccReq, gameName, [][]byte{})
+
 	if err != nil {
 		errOut <- err
 		panic(err)
 	}
-	// allianceErrOut := make(chan (error), len(tfcScript))
 
-	// j := 0
-	// stepSize := 12
-	// for i := 0; i < len(tfcScript); i += stepSize {
-	// 	_, err = runGameScript(tfcScript[j:i], "tfc", players)
-	// 	if err != nil {
-	// 		errOut <- err
-	// 		panic(err)
-	// 	}
-
-	// 	go alGenerator(i, gameName, allianceErrOut)
-	// 	j = i
+	tfcScript, alGenerator := scriptTFC1(players[0], players[1], players[2])
+	// _, err = runGameScript(tfcScript, "tfc", players)
+	// if err != nil {
+	// 	errOut <- err
+	// 	panic(err)
 	// }
+	allianceErrOut := make(chan (error), len(tfcScript))
+
+	j := 0
+	stepSize := 12
+	for i := 0; i < len(tfcScript); i += stepSize {
+		_, err = runGameScript(tfcScript[j:i], "tfc", players)
+		if err != nil {
+			errOut <- err
+			panic(err)
+		}
+
+		go alGenerator(i, gameName, allianceErrOut)
+		j = i
+	}
 
 	log.Printf("Finished running test.")
 
-	// for ; j >= 0; j -= stepSize {
-	// 	log.Printf("Waiting for alliances to create...%d", j)
-	// 	err = <-allianceErrOut
-	// 	if err != nil {
+	for ; j >= 0; j -= stepSize {
+		log.Printf("Waiting for alliances to create...%d", j)
+		err = <-allianceErrOut
+		if err != nil {
 
-	// 		errOut <- err
-	// 		panic(err)
-	// 	}
-	// }
+			errOut <- err
+			panic(err)
+		}
+	}
 
 	errOut <- nil
 }
@@ -284,7 +307,7 @@ func runGameScript(script []scriptStep, ccName string, players []*TFCClient) ([]
 
 				notifyArgs := &tfcPb.TrxCompletedArgs{
 					CompletedTrxArgs: gcArgs,
-					ObserverID:       ccReg.UUID,
+					ObserverID:       ccReg.InitPayload.ContractID,
 				}
 				ccReg.TrxComplete <- notifyArgs
 			}
