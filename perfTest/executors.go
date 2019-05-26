@@ -217,34 +217,38 @@ func execTFCGameAsync(gameName string, errOut chan (error), orgsIn chan ([]strin
 	}
 
 	defer closePlayers(players)
-	tfcScript, alGenerator := scriptTFC1(players[0], players[1], players[2])
-
-	allianceErrOut := make(chan (error), len(tfcScript))
-
-	j := 0
-	stepSize := 12
-	for i := 0; i < len(tfcScript); i += stepSize {
-		_, err = runGameScript(tfcScript[j:i], "tfc", players)
-		if err != nil {
-			errOut <- err
-			panic(err)
-		}
-
-		go alGenerator(i, gameName, allianceErrOut)
-		j = i
+	tfcScript, _ := scriptTFC1(players[0], players[1], players[2])
+	_, err = runGameScript(tfcScript, "tfc", players)
+	if err != nil {
+		errOut <- err
+		panic(err)
 	}
+	// allianceErrOut := make(chan (error), len(tfcScript))
+
+	// j := 0
+	// stepSize := 12
+	// for i := 0; i < len(tfcScript); i += stepSize {
+	// 	_, err = runGameScript(tfcScript[j:i], "tfc", players)
+	// 	if err != nil {
+	// 		errOut <- err
+	// 		panic(err)
+	// 	}
+
+	// 	go alGenerator(i, gameName, allianceErrOut)
+	// 	j = i
+	// }
 
 	log.Printf("Finished running test.")
 
-	for ; j >= 0; j -= stepSize {
-		log.Printf("Waiting for alliances to create...%d", j)
-		err = <-allianceErrOut
-		if err != nil {
+	// for ; j >= 0; j -= stepSize {
+	// 	log.Printf("Waiting for alliances to create...%d", j)
+	// 	err = <-allianceErrOut
+	// 	if err != nil {
 
-			errOut <- err
-			panic(err)
-		}
-	}
+	// 		errOut <- err
+	// 		panic(err)
+	// 	}
+	// }
 
 	errOut <- nil
 }

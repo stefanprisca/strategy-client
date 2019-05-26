@@ -61,14 +61,14 @@ func TestE2E(t *testing.T) {
 }
 
 func TestGoroutinesStatic(t *testing.T) {
-	testName := "testgrinc"
+	testName := "rq"
 	rand.Seed(time.Now().Unix())
 	testName += strconv.Itoa(rand.Int() % 100)
 
 	promeShutdown := startProme()
 	defer promeShutdown()
 
-	testWithRoutines(t, 8, testName, execTFCGameAsync, playerPairs)
+	testWithRoutines(t, 16, testName, execTTTGameAsync, playerPairs)
 }
 
 func TestGoroutinesIncremental(t *testing.T) {
@@ -80,7 +80,7 @@ func TestGoroutinesIncremental(t *testing.T) {
 
 	testWithRoutines(t, 1, "tfc"+testName, execTFCGameAsync, playerPairs)
 
-	for nOfRoutines := 2; nOfRoutines <= 32; nOfRoutines *= 2 {
+	for nOfRoutines := 2; nOfRoutines <= 16; nOfRoutines *= 2 {
 
 		nOfTFC := nOfRoutines/2 - 1
 		tfcDone := make(chan (bool), nOfTFC+1)
