@@ -2,7 +2,6 @@ package tfc
 
 import (
 	"fmt"
-	"log"
 	"strings"
 
 	"github.com/hyperledger/fabric-sdk-go/third_party/github.com/hyperledger/fabric/common/cauthdsl"
@@ -26,15 +25,15 @@ func getCollectionDefinitions(players []*TFCClient) ([]*common.CollectionConfig,
 		}
 	}
 
-	log.Printf("Generated collection configurations %v", collections)
+	// log.Printf("Generated collection configurations %v", collections)
 
 	return collections, nil
 }
 
 func genStaticColConfig(p1, p2 *TFCClient) (*common.CollectionConfig, error) {
 
-	colPolicyStr := fmt.Sprintf("OR('%sMSP.member', '%sMSP.member')", p1.OrgID, p2.OrgID)
-	log.Printf("Created policy string: %s", colPolicyStr)
+	colPolicyStr := fmt.Sprintf("OutOf(1, '%s', '%s')", p1.Endorser, p2.Endorser)
+	// log.Printf("Created policy string: %s", colPolicyStr)
 	colPolicy, err := cauthdsl.FromString(colPolicyStr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create ccPolicy: %s", err)

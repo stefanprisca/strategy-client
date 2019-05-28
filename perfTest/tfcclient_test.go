@@ -41,7 +41,7 @@ var playerPairs = [][]string{
 }
 
 func TestE2E(t *testing.T) {
-	runName := "t214"
+	runName := "tfc665"
 
 	promeShutdown := startProme()
 	defer promeShutdown()

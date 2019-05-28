@@ -226,20 +226,6 @@ func execTFCGameAsync(gameName string, errOut chan (error), orgsIn chan ([]strin
 
 	defer closePlayers(players)
 
-	// Instantiate the alliance CC
-
-	ccReq = resmgmt.InstantiateCCRequest{
-		Name:    "alliance",
-		Path:    "github.com/stefanprisca/strategy-code/cmd/alliance",
-		Version: "1.0",
-	}
-	err = runChaincode(players, ccReq, gameName, [][]byte{})
-
-	if err != nil {
-		errOut <- err
-		panic(err)
-	}
-
 	tfcScript, alGenerator := scriptTFC1(players[0], players[1], players[2])
 	// _, err = runGameScript(tfcScript, "tfc", players)
 	// if err != nil {

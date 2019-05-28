@@ -262,8 +262,7 @@ func updateAnchorPeers(player *TFCClient, chanName string) error {
 }
 
 func deployChaincode(ccPath, name string,
-	players []*TFCClient,
-	initArgs [][]byte) (*resmgmt.InstallCCRequest, error) {
+	players []*TFCClient) (*resmgmt.InstallCCRequest, error) {
 
 	ccPkg, err := createCC(ccPath)
 	if err != nil {
@@ -274,7 +273,7 @@ func deployChaincode(ccPath, name string,
 	ccReq := &resmgmt.InstallCCRequest{
 		Name:    name,
 		Path:    ccPath,
-		Version: "0.1.0",
+		Version: "1.0",
 		Package: ccPkg}
 
 	if err != nil {
@@ -331,7 +330,7 @@ func runChaincode(players []*TFCClient,
 		endorsers = append(endorsers, fmt.Sprintf("'%s'", p.Endorser))
 	}
 
-	ccPolicyString := fmt.Sprintf("OutOf(1, %s)", strings.Join(endorsers, ", "))
+	ccPolicyString := fmt.Sprintf("OutOf(2, %s)", strings.Join(endorsers, ", "))
 	log.Printf("Created policy string: %s", ccPolicyString)
 
 	ccPolicy, err := cauthdsl.FromString(ccPolicyString)
@@ -374,9 +373,28 @@ func runChaincode(players []*TFCClient,
 
 func makeAlliance(gameName string, allianceUUID uint32, allies []*ally, terms ...*tfcPb.GameContractTrxArgs) error {
 
-	// allianceCCPath := "github.com/stefanprisca/strategy-code/alliance"
+	allianceCCPath := "github.com/stefanprisca/local-cc/alliance"
 	log.Printf("Creating alliance for players %v %v...", allies[0].OrgID, allies[1].OrgID)
-	// allianceName := gameName + fmt.Sprintf("%d", allianceUUID)
+	allianceName := gameName + fmt.Sprintf("%d", allianceUUID)
+	players := []*TFCClient{allies[0].TFCClient, allies[1].TFCClient}
+	// Alliance still needs to be deployed as a specific CC.
+	// Endorsment policies don't work otheriwse
+	_, err := deployChaincode(allianceCCPath, allianceName, players)
+	if err != nil {
+		return err
+	}
+
+	// Instantiate the alliance CC
+
+	ccReq := resmgmt.InstantiateCCRequest{
+		Name:    allianceName,
+		Path:    "github.com/stefanprisca/strategy-code/cmd/alliance",
+		Version: "1.0",
+	}
+	err = runChaincode(players, ccReq, gameName, [][]byte{})
+	if err != nil {
+		return err
+	}
 
 	ad := &tfcPb.AllianceData{
 		Lifespan:       3,
@@ -401,21 +419,21 @@ func makeAlliance(gameName string, allianceUUID uint32, allies []*ally, terms ..
 
 	log.Printf("Installing the alliance chaincode...")
 
-	_, err = invokeAndMeasure(allies[0].TFCClient, "alliance", protoData)
+	_, err = invokeAndMeasure(allies[0].TFCClient, allianceName, protoData)
 	if err != nil {
 		return err
 	}
 
-	registerAllianceListener(allies, allianceUUID)
+	registerAllianceListener(allies, allianceUUID, allianceName)
 
 	return nil
 }
 
-func registerAllianceListener(allies []*ally, observerID uint32) *GameObserver {
+func registerAllianceListener(allies []*ally, observerID uint32, allianceName string) *GameObserver {
 
 	shutdown := make(chan bool, 100)
 	trxComplete := make(chan *tfcPb.TrxCompletedArgs, 100)
-	observer := &GameObserver{trxComplete, shutdown, "alliance", observerID, false}
+	observer := &GameObserver{trxComplete, shutdown, allianceName, observerID, false}
 
 	go handleAllianceEventsAsync(allies, observer)
 
