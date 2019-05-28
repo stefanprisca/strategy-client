@@ -307,7 +307,6 @@ func runGameScript(script []scriptStep, ccName string, players []*TFCClient) ([]
 
 				notifyArgs := &tfcPb.TrxCompletedArgs{
 					CompletedTrxArgs: gcArgs,
-					ObserverID:       ccReg.InitPayload.ContractID,
 				}
 				ccReg.TrxComplete <- notifyArgs
 			}

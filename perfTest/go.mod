@@ -22,7 +22,7 @@ require (
 	github.com/stefanprisca/strategy-code v0.0.0-20190508095113-1cf6ba76bd11 // indirect
 	github.com/stefanprisca/strategy-code/prettyprint v0.0.0-20190508095113-1cf6ba76bd11
 	github.com/stefanprisca/strategy-code/tfc v0.0.0-20190519101532-421e923decd9
-	github.com/stefanprisca/strategy-protobufs v0.0.0-20190526122351-ad5e59a8ed29
+	github.com/stefanprisca/strategy-protobufs v0.0.0-20190528122945-57685acb6663
 	github.com/stretchr/testify v1.3.0
 	gonum.org/v1/gonum v0.0.0-20190509213835-50179cd3f3f7
 	gonum.org/v1/plot v0.0.0-20190410204940-3a5f52653745
