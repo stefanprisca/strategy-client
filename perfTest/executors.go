@@ -70,7 +70,7 @@ func scriptTFC1(p1, p2, p3 *TFCClient) ([]scriptStep, asyncAcriptAllianceGenerat
 		{message: tfcCC.NewArgsBuilder().WithRollArgs().Args(), player: p3},
 		{message: tfcCC.NewArgsBuilder().WithTradeArgs(p3C, p1C, tfcPb.Resource_HILL, 2).Args(), player: p3},
 		{message: tfcCC.NewArgsBuilder().WithTradeArgs(p3C, p2C, tfcPb.Resource_HILL, 2).Args(), player: p3},
-		{message: tfcCC.NewArgsBuilder().WithTradeArgs(p3C, p2C, tfcPb.Resource_FOREST, -2).Args(), player: p2},
+		{message: tfcCC.NewArgsBuilder().WithTradeArgs(p3C, p2C, tfcPb.Resource_FOREST, -2).Args(), player: p3},
 		{message: tfcCC.NewArgsBuilder().WithNextArgs().Args(), player: p3},
 		{message: tfcCC.NewArgsBuilder().WithNextArgs().Args(), player: p3},
 	}
@@ -80,8 +80,11 @@ func scriptTFC1(p1, p2, p3 *TFCClient) ([]scriptStep, asyncAcriptAllianceGenerat
 	}
 
 	return s, func(i int, gameName string, eOut chan error) {
-		a1 := s[i%3].player
-		a2 := s[(i+1)%3].player
+		rand.Seed(int64(i))
+		n := rand.Int() % 3
+
+		a1 := s[n%3].player
+		a2 := s[(n+1)%3].player
 
 		allies := []*ally{
 			{a1, colors[a1.OrgID]},
@@ -163,7 +166,7 @@ func runScriptDRM(script []drmItem, ccName string, players []*TFCClient) ([]chan
 		}
 
 		pID := i % len(players)
-		r, err := invokeAndMeasure(players[pID], ccName, trxArgs)
+		r, err := invokeAndMeasure(players[pID], ccName, ccName, trxArgs)
 		if err != nil {
 			return responses, err
 		}
@@ -243,7 +246,7 @@ func execTFCGameAsync(gameName string, errOut chan (error), orgsIn chan ([]strin
 			panic(err)
 		}
 
-		go alGenerator(i, gameName, allianceErrOut)
+		alGenerator(i, gameName, allianceErrOut)
 		j = i
 	}
 
@@ -273,11 +276,11 @@ func runGameScript(script []scriptStep, ccName string, players []*TFCClient) ([]
 			return responses, err
 		}
 
-		ms := rand.Intn(100) + 100
+		ms := rand.Intn(2000) + 500
 		stepInterval, _ := time.ParseDuration(fmt.Sprintf("%vms", ms))
 		time.Sleep(stepInterval)
 
-		r, err := invokeAndMeasure(player, ccName, trxArgs)
+		r, err := invokeAndMeasure(player, ccName, ccName, trxArgs)
 
 		if err != nil {
 			log.Println(err.Error())

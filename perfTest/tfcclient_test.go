@@ -68,7 +68,7 @@ func TestGoroutinesStatic(t *testing.T) {
 	promeShutdown := startProme()
 	defer promeShutdown()
 
-	testWithRoutines(t, 16, testName, execTFCGameAsync, playerPairs)
+	testWithRoutines(t, 4, testName, execTFCGameAsync, playerPairs)
 }
 
 func TestGoroutinesIncremental(t *testing.T) {

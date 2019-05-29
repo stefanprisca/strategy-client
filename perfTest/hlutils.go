@@ -419,7 +419,7 @@ func makeAlliance(gameName string, allianceUUID uint32, allies []*ally, terms ..
 
 	log.Printf("Installing the alliance chaincode...")
 
-	_, err = invokeAndMeasure(allies[0].TFCClient, allianceName, protoData)
+	_, err = invokeAndMeasure(allies[0].TFCClient, allianceName, "alliance", protoData)
 	if err != nil {
 		return err
 	}
@@ -468,7 +468,7 @@ func handleAllianceEventsAsync(allies []*ally, gameObserver *GameObserver) {
 				panic(err)
 			}
 
-			r, err := invokeAndMeasure(allies[0].TFCClient, gameObserver.Name, protoData)
+			r, err := invokeAndMeasure(allies[0].TFCClient, gameObserver.Name, "alliance", protoData)
 			if err != nil {
 				panic(err)
 			}
@@ -497,7 +497,7 @@ func handleAllianceEventsAsync(allies []*ally, gameObserver *GameObserver) {
 
 }
 
-func invokeAndMeasure(player *TFCClient, ccName string, trxArgs []byte) (channel.Response, error) {
+func invokeAndMeasure(player *TFCClient, ccName, ccLabel string, trxArgs []byte) (channel.Response, error) {
 
 	st := time.Now()
 	r, err := invokeGameChaincode(player, ccName, trxArgs)
@@ -505,14 +505,14 @@ func invokeAndMeasure(player *TFCClient, ccName string, trxArgs []byte) (channel
 
 	if err != nil {
 		player.Metrics.
-			With(CCLabel, ccName).
+			With(CCLabel, ccLabel).
 			With(CCFailedLabel, "True").
 			Observe(rt)
 		return r, err
 	}
 
 	player.Metrics.
-		With(CCLabel, ccName).
+		With(CCLabel, ccLabel).
 		With(CCFailedLabel, "False").
 		Observe(rt)
 
