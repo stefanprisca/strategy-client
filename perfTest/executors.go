@@ -101,7 +101,7 @@ func scriptTFC1(p1, p2, p3 *TFCClient) ([]scriptStep, asyncAcriptAllianceGenerat
 				Args(),
 		}
 
-		eOut <- makeAlliance(gameName, allianceUUID, allies, terms...)
+		eOut <- makeAndMeasureAlliance(gameName, allianceUUID, allies, terms...)
 
 	}
 }
@@ -187,7 +187,7 @@ func execTTTGameAsync(gameName string, errOut chan (error), orgsIn chan ([]strin
 	}
 
 	orgs := <-orgsIn
-	players, err := bootstrapChannel(gameName, orgs[:2], ccReq)
+	players, err := bootstrapAndMeasureChannel(gameName, orgs[:2], ccReq)
 	orgsOut <- orgs
 
 	if err != nil {
@@ -219,7 +219,7 @@ func execTFCGameAsync(gameName string, errOut chan (error), orgsIn chan ([]strin
 	}
 
 	orgs := <-orgsIn
-	players, err := bootstrapChannel(gameName, orgs, ccReq)
+	players, err := bootstrapAndMeasureChannel(gameName, orgs, ccReq)
 	orgsOut <- orgs
 
 	if err != nil {
@@ -276,7 +276,7 @@ func runGameScript(script []scriptStep, ccName string, players []*TFCClient) ([]
 			return responses, err
 		}
 
-		ms := rand.Intn(2000) + 500
+		ms := rand.Intn(500) + 100
 		stepInterval, _ := time.ParseDuration(fmt.Sprintf("%vms", ms))
 		time.Sleep(stepInterval)
 
@@ -284,6 +284,7 @@ func runGameScript(script []scriptStep, ccName string, players []*TFCClient) ([]
 
 		if err != nil {
 			log.Println(err.Error())
+			i--
 			continue
 		}
 

@@ -22,6 +22,29 @@ import (
 	tfcPb "github.com/stefanprisca/strategy-protobufs/tfc"
 )
 
+func bootstrapAndMeasureChannel(gameName string, chanOrgs []string, ccReq resmgmt.InstantiateCCRequest) ([]*TFCClient, error) {
+
+	// Observe a 0 to boot the ops measurement
+	GetPlayerMetrics().
+		With(CCLabel, "Operations").
+		With(CCFailedLabel, "False").
+		Observe(0)
+
+	st := time.Now()
+	p, err := bootstrapChannel(gameName, chanOrgs, ccReq)
+	rt := time.Since(st).Seconds()
+
+	if err != nil {
+		return p, err
+	}
+
+	GetPlayerMetrics().
+		With(CCLabel, "Operations").
+		With(CCFailedLabel, "False").
+		Observe(rt)
+	return p, err
+}
+
 func bootstrapChannel(gameName string, chanOrgs []string, ccReq resmgmt.InstantiateCCRequest) ([]*TFCClient, error) {
 
 	cfgPath, err := generateChannelArtifacts(gameName, chanOrgs)
@@ -367,6 +390,28 @@ func runChaincode(players []*TFCClient,
 	if err != nil {
 		return fmt.Errorf("failed to instantiate cc: %s", err)
 	}
+
+	return err
+}
+
+func makeAndMeasureAlliance(gameName string, allianceUUID uint32, allies []*ally, terms ...*tfcPb.GameContractTrxArgs) error {
+
+	st := time.Now()
+	err := makeAlliance(gameName, allianceUUID, allies, terms...)
+	rt := time.Since(st).Seconds()
+
+	if err != nil {
+		GetPlayerMetrics().
+			With(CCLabel, "Operations").
+			With(CCFailedLabel, "True").
+			Observe(rt)
+		return err
+	}
+
+	GetPlayerMetrics().
+		With(CCLabel, "Operations").
+		With(CCFailedLabel, "False").
+		Observe(rt)
 
 	return err
 }

@@ -238,8 +238,8 @@ channels:
         maxTargets: 1
         retryOpts:
           attempts: 5
-          initialBackoff: 1s
-          maxBackoff: 16s
+          initialBackoff: 100ms
+          maxBackoff: 4s
           backoffFactor: 2.0
 
       selection:
@@ -252,13 +252,13 @@ channels:
         maxTargets: 1
         retryOpts:
           attempts: 5
-          initialBackoff: 1s
-          maxBackoff: 16s
+          initialBackoff: 100ms
+          maxBackoff: 4s
           backoffFactor: 2.0
 
       eventService:
         resolverStrategy: PreferOrg
         balancer: Random
-        blockHeightLagThreshold: 5
-        reconnectBlockHeightLagThreshold: 20
+        blockHeightLagThreshold: 10
+        reconnectBlockHeightLagThreshold: 10
         peerMonitorPeriod: 1s
