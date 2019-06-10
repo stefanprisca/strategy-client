@@ -14,6 +14,6 @@ require (
 	github.com/hyperledger/fabric-sdk-go v1.0.0-alpha5
 	github.com/prometheus/client_golang v0.9.2 // indirect
 	github.com/stefanprisca/strategy-code/tfc v0.0.0-20190519101532-421e923decd9 // indirect
-	github.com/stefanprisca/strategy-protobufs v0.0.0-20190518070239-5e1d55254410
+	github.com/stefanprisca/strategy-protobufs v0.0.0-20190526122351-ad5e59a8ed29
 	github.com/stretchr/testify v1.3.0
 )

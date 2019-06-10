@@ -235,17 +235,17 @@ channels:
     policies:
 
       discovery:
-        maxTargets: 2
+        maxTargets: 1
         retryOpts:
-          attempts: 4
+          attempts: 5
           initialBackoff: 100ms
-          maxBackoff: 5s
+          maxBackoff: 4s
           backoffFactor: 2.0
 
       selection:
         SortingStrategy: PreferOrg
         Balancer: Random
-        BlockHeightLagThreshold: 5
+        BlockHeightLagThreshold: 10
 
       queryChannelConfig:
         minResponses: 1
@@ -253,12 +253,12 @@ channels:
         retryOpts:
           attempts: 5
           initialBackoff: 100ms
-          maxBackoff: 5s
+          maxBackoff: 4s
           backoffFactor: 2.0
 
       eventService:
         resolverStrategy: PreferOrg
         balancer: Random
-        blockHeightLagThreshold: 5
+        blockHeightLagThreshold: 10
         reconnectBlockHeightLagThreshold: 10
         peerMonitorPeriod: 1s

@@ -165,6 +165,12 @@ github.com/stefanprisca/strategy-protobufs v0.0.0-20190505095635-b62e068f2a12 h1
 github.com/stefanprisca/strategy-protobufs v0.0.0-20190505095635-b62e068f2a12/go.mod h1:jGcKHRgztgb0wUT9Lgmp3Gz3NEyteZDXMixB6TZiimA=
 github.com/stefanprisca/strategy-protobufs v0.0.0-20190518070239-5e1d55254410 h1:1CEW6fEJ7FtzMo5vCapJc51/YlCVCeQQnsNTxxMlrUk=
 github.com/stefanprisca/strategy-protobufs v0.0.0-20190518070239-5e1d55254410/go.mod h1:jGcKHRgztgb0wUT9Lgmp3Gz3NEyteZDXMixB6TZiimA=
+github.com/stefanprisca/strategy-protobufs v0.0.0-20190526122351-ad5e59a8ed29 h1:WWXc2+iF4SPQLRRi5skAexEMgEOzB6DUb2amgQQdWwg=
+github.com/stefanprisca/strategy-protobufs v0.0.0-20190526122351-ad5e59a8ed29/go.mod h1:jGcKHRgztgb0wUT9Lgmp3Gz3NEyteZDXMixB6TZiimA=
+github.com/stefanprisca/strategy-protobufs v0.0.0-20190528094426-36df2af54f5b h1:wDJkBfYpNbZjtYgjpL0KJI56lcDbAAjqwun5zetvd0M=
+github.com/stefanprisca/strategy-protobufs v0.0.0-20190528094426-36df2af54f5b/go.mod h1:jGcKHRgztgb0wUT9Lgmp3Gz3NEyteZDXMixB6TZiimA=
+github.com/stefanprisca/strategy-protobufs v0.0.0-20190528122945-57685acb6663 h1:Gvc4nup4CJy/f7eH5kY5fS+lZlZYRPamGxiDP22ZODs=
+github.com/stefanprisca/strategy-protobufs v0.0.0-20190528122945-57685acb6663/go.mod h1:jGcKHRgztgb0wUT9Lgmp3Gz3NEyteZDXMixB6TZiimA=
 github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
 github.com/stretchr/objx v0.1.1/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
 github.com/stretchr/testify v1.2.2/go.mod h1:a8OnRcib4nhh0OaRAV+Yts87kKdq0PP7pXfy6kDkUVs=

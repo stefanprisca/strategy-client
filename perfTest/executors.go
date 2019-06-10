@@ -8,6 +8,8 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/hyperledger/fabric-sdk-go/pkg/client/resmgmt"
+
 	"github.com/gogo/protobuf/proto"
 	"github.com/hyperledger/fabric-sdk-go/pkg/client/channel"
 	"github.com/stefanprisca/strategy-code/tfc"
@@ -37,6 +39,11 @@ func scriptTTT1(p1, p2 *TFCClient) []scriptStep {
 
 type asyncAcriptAllianceGenerator func(int, string, chan error)
 
+type ally struct {
+	*TFCClient
+	Color tfcPb.Player
+}
+
 func scriptTFC1(p1, p2, p3 *TFCClient) ([]scriptStep, asyncAcriptAllianceGenerator) {
 
 	p1C, p2C, p3C := tfcPb.Player_RED, tfcPb.Player_GREEN, tfcPb.Player_BLUE
@@ -63,7 +70,7 @@ func scriptTFC1(p1, p2, p3 *TFCClient) ([]scriptStep, asyncAcriptAllianceGenerat
 		{message: tfcCC.NewArgsBuilder().WithRollArgs().Args(), player: p3},
 		{message: tfcCC.NewArgsBuilder().WithTradeArgs(p3C, p1C, tfcPb.Resource_HILL, 2).Args(), player: p3},
 		{message: tfcCC.NewArgsBuilder().WithTradeArgs(p3C, p2C, tfcPb.Resource_HILL, 2).Args(), player: p3},
-		{message: tfcCC.NewArgsBuilder().WithTradeArgs(p3C, p2C, tfcPb.Resource_FOREST, -2).Args(), player: p2},
+		{message: tfcCC.NewArgsBuilder().WithTradeArgs(p3C, p2C, tfcPb.Resource_FOREST, -2).Args(), player: p3},
 		{message: tfcCC.NewArgsBuilder().WithNextArgs().Args(), player: p3},
 		{message: tfcCC.NewArgsBuilder().WithNextArgs().Args(), player: p3},
 	}
@@ -73,10 +80,16 @@ func scriptTFC1(p1, p2, p3 *TFCClient) ([]scriptStep, asyncAcriptAllianceGenerat
 	}
 
 	return s, func(i int, gameName string, eOut chan error) {
-		a1 := s[i%3].player
-		a2 := s[(i+1)%3].player
+		rand.Seed(int64(i))
+		n := rand.Int() % 3
 
-		allies := []*TFCClient{a1, a2}
+		a1 := s[n%3].player
+		a2 := s[(n+1)%3].player
+
+		allies := []*ally{
+			{a1, colors[a1.OrgID]},
+			{a2, colors[a2.OrgID]},
+		}
 		allianceUUID := uint32(100 + i)
 
 		terms := []*tfcPb.GameContractTrxArgs{
@@ -88,7 +101,7 @@ func scriptTFC1(p1, p2, p3 *TFCClient) ([]scriptStep, asyncAcriptAllianceGenerat
 				Args(),
 		}
 
-		eOut <- makeAlliance(gameName, allianceUUID, allies, terms...)
+		eOut <- makeAndMeasureAlliance(gameName, allianceUUID, allies, terms...)
 
 	}
 }
@@ -120,14 +133,19 @@ func scriptDRM() []drmItem {
 
 func execDRMAsync(gameName string, respChan chan (bool), orgsIn chan ([]string), orgsOut chan ([]string)) {
 
-	ccPath := "contract/fabric/drm"
+	ccReq := resmgmt.InstantiateCCRequest{
+		Name:    "drm",
+		Path:    "contract/fabric/drm",
+		Version: "1.0",
+	}
+
 	orgs := <-orgsIn
-	players, err := bootstrapChannel(gameName, orgs[:2], ccPath)
+	players, err := bootstrapChannel(gameName, orgs[:2], ccReq)
 	orgsOut <- orgs
 	defer closePlayers(players)
 
 	tttScript1 := scriptDRM()
-	_, err = runScriptDRM(tttScript1, gameName, players)
+	_, err = runScriptDRM(tttScript1, "drm", players)
 	if err != nil {
 		panic(err)
 	}
@@ -137,7 +155,7 @@ func execDRMAsync(gameName string, respChan chan (bool), orgsIn chan ([]string),
 	respChan <- true
 }
 
-func runScriptDRM(script []drmItem, chanName string, players []*TFCClient) ([]channel.Response, error) {
+func runScriptDRM(script []drmItem, ccName string, players []*TFCClient) ([]channel.Response, error) {
 	responses := make([]channel.Response, len(script))
 	for i := range script {
 		msg := script[i]
@@ -148,7 +166,7 @@ func runScriptDRM(script []drmItem, chanName string, players []*TFCClient) ([]ch
 		}
 
 		pID := i % len(players)
-		r, err := invokeAndMeasure(players[pID], chanName, trxArgs, "DRM")
+		r, err := invokeAndMeasure(players[pID], ccName, ccName, trxArgs)
 		if err != nil {
 			return responses, err
 		}
@@ -162,10 +180,14 @@ func execTTTGameAsync(gameName string, errOut chan (error), orgsIn chan ([]strin
 
 	defer recordFailure()
 
-	ccPath := "github.com/stefanprisca/strategy-code/tictactoe"
+	ccReq := resmgmt.InstantiateCCRequest{
+		Name:    "ttt",
+		Path:    "github.com/stefanprisca/strategy-code/tictactoe",
+		Version: "1.0",
+	}
 
 	orgs := <-orgsIn
-	players, err := bootstrapChannel(gameName, orgs[:2], ccPath)
+	players, err := bootstrapAndMeasureChannel(gameName, orgs[:2], ccReq)
 	orgsOut <- orgs
 
 	if err != nil {
@@ -176,7 +198,7 @@ func execTTTGameAsync(gameName string, errOut chan (error), orgsIn chan ([]strin
 	defer closePlayers(players)
 
 	tttScript1 := scriptTTT1(players[0], players[1])
-	_, err = runGameScript(tttScript1, gameName, players, "TTT")
+	_, err = runGameScript(tttScript1, "ttt", players)
 	if err != nil {
 		errOut <- err
 		panic(err)
@@ -190,10 +212,14 @@ func execTFCGameAsync(gameName string, errOut chan (error), orgsIn chan ([]strin
 
 	defer recordFailure()
 
-	ccPath := "github.com/stefanprisca/strategy-code/cmd/tfc"
+	ccReq := resmgmt.InstantiateCCRequest{
+		Name:    "tfc",
+		Path:    "github.com/stefanprisca/strategy-code/cmd/tfc",
+		Version: "1.0",
+	}
 
 	orgs := <-orgsIn
-	players, err := bootstrapChannel(gameName, orgs, ccPath)
+	players, err := bootstrapAndMeasureChannel(gameName, orgs, ccReq)
 	orgsOut <- orgs
 
 	if err != nil {
@@ -202,20 +228,25 @@ func execTFCGameAsync(gameName string, errOut chan (error), orgsIn chan ([]strin
 	}
 
 	defer closePlayers(players)
-	tfcScript, alGenerator := scriptTFC1(players[0], players[1], players[2])
 
+	tfcScript, alGenerator := scriptTFC1(players[0], players[1], players[2])
+	// _, err = runGameScript(tfcScript, "tfc", players)
+	// if err != nil {
+	// 	errOut <- err
+	// 	panic(err)
+	// }
 	allianceErrOut := make(chan (error), len(tfcScript))
 
 	j := 0
 	stepSize := 12
 	for i := 0; i < len(tfcScript); i += stepSize {
-		_, err = runGameScript(tfcScript[j:i], gameName, players, "TFC")
+		_, err = runGameScript(tfcScript[j:i], "tfc", players)
 		if err != nil {
 			errOut <- err
 			panic(err)
 		}
 
-		go alGenerator(i, gameName, allianceErrOut)
+		alGenerator(i, gameName, allianceErrOut)
 		j = i
 	}
 
@@ -234,7 +265,7 @@ func execTFCGameAsync(gameName string, errOut chan (error), orgsIn chan ([]strin
 	errOut <- nil
 }
 
-func runGameScript(script []scriptStep, chanName string, players []*TFCClient, ccName string) ([]channel.Response, error) {
+func runGameScript(script []scriptStep, ccName string, players []*TFCClient) ([]channel.Response, error) {
 	responses := make([]channel.Response, len(script))
 	for i := 0; i < len(script); i++ {
 		msg := script[i].message
@@ -245,14 +276,15 @@ func runGameScript(script []scriptStep, chanName string, players []*TFCClient, c
 			return responses, err
 		}
 
-		ms := rand.Intn(100) + 100
+		ms := rand.Intn(500) + 100
 		stepInterval, _ := time.ParseDuration(fmt.Sprintf("%vms", ms))
 		time.Sleep(stepInterval)
 
-		r, err := invokeAndMeasure(player, chanName, trxArgs, ccName)
+		r, err := invokeAndMeasure(player, ccName, ccName, trxArgs)
 
 		if err != nil {
 			log.Println(err.Error())
+			i--
 			continue
 		}
 
@@ -265,7 +297,6 @@ func runGameScript(script []scriptStep, chanName string, players []*TFCClient, c
 
 				notifyArgs := &tfcPb.TrxCompletedArgs{
 					CompletedTrxArgs: gcArgs,
-					ObserverID:       ccReg.UUID,
 				}
 				ccReg.TrxComplete <- notifyArgs
 			}

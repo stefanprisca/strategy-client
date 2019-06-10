@@ -23,7 +23,7 @@ type GameObserver struct {
 	TrxComplete chan *tfcPb.TrxCompletedArgs
 	Shutdown    chan bool
 	Name        string
-	UUID        uint32
+	ObserverID  uint32
 	terminated  bool
 }
 
@@ -104,7 +104,7 @@ func NewTFCClient(fabCfgPath, clientCfgPath, org, gameName string) (*TFCClient, 
 		ResMgmt:              orgResMgmt,
 		PeerEndpoint:         "peer0." + strings.ToLower(org) + ".tfc.com",
 		AnchorPeerConfigFile: path.Join(fabCfgPath, org+"anchors.tx"),
-		Endorser:             org + "MSP.peer",
+		Endorser:             org + "MSP.member",
 		SDK:                  sdk,
 		ChannelClient:        nil,
 		GameObservers:        observers,
