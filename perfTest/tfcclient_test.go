@@ -41,7 +41,9 @@ var playerPairs = [][]string{
 }
 
 func TestE2ETFC(t *testing.T) {
-	runName := "tfc4"
+	runName := "tfc"
+	rand.Seed(time.Now().Unix())
+	runName += strconv.Itoa(rand.Int() % 100)
 	promeShutdown := startProme()
 	defer promeShutdown()
 	players := []string{Player1, Player2, Player3}
@@ -56,6 +58,8 @@ func TestE2ETFC(t *testing.T) {
 
 func TestE2ETTT(t *testing.T) {
 	runName := "ttt"
+	rand.Seed(time.Now().Unix())
+	runName += strconv.Itoa(rand.Int() % 100)
 	promeShutdown := startProme()
 	defer promeShutdown()
 	players := []string{Player1, Player2, Player3}

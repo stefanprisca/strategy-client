@@ -418,7 +418,7 @@ func makeAndMeasureAlliance(gameName string, allianceUUID uint32, allies []*ally
 
 func makeAlliance(gameName string, allianceUUID uint32, allies []*ally, terms ...*tfcPb.GameContractTrxArgs) error {
 
-	allianceCCPath := "github.com/stefanprisca/local-cc/alliance"
+	allianceCCPath := "local-cc/alliance"
 	log.Printf("Creating alliance for players %v %v...", allies[0].OrgID, allies[1].OrgID)
 	allianceName := gameName + fmt.Sprintf("%d", allianceUUID)
 	players := []*TFCClient{allies[0].TFCClient, allies[1].TFCClient}
